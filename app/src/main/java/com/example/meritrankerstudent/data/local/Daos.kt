@@ -65,6 +65,12 @@ interface PracticeDao {
     @Query("SELECT * FROM cached_practice_activities WHERE activityId = :activityId LIMIT 1")
     suspend fun getActivitySync(activityId: String): CachedPracticeActivityEntity?
 
+    @Query("SELECT * FROM cached_practice_activities WHERE ownerUserId = :ownerUserId AND (generationStatus IS NULL OR generationStatus NOT IN ('READY', 'FAILED', 'CANCELLED', 'EXPIRED', 'INTERRUPTED')) ORDER BY lastSyncedAt DESC")
+    suspend fun getNonTerminalActivities(ownerUserId: String): List<CachedPracticeActivityEntity>
+
+    @Query("SELECT * FROM cached_practice_activities WHERE ownerUserId = :ownerUserId AND (generationStatus IS NULL OR generationStatus NOT IN ('READY', 'FAILED', 'CANCELLED', 'EXPIRED', 'INTERRUPTED')) ORDER BY lastSyncedAt DESC")
+    fun observeNonTerminalActivities(ownerUserId: String): Flow<List<CachedPracticeActivityEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertActivity(activity: CachedPracticeActivityEntity)
 

@@ -3,6 +3,7 @@ package com.example.meritrankerstudent.ui.doubt
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator
 import com.example.meritrankerstudent.data.model.ConversationSession
 import com.example.meritrankerstudent.data.model.DoubtMessage
 import com.example.meritrankerstudent.data.model.DoubtRequest
@@ -71,7 +72,8 @@ class AskDoubtViewModel(
     private val repository: DoubtRepository = DefaultDoubtRepository(),
     private val authRepository: AuthRepository = DefaultAuthRepository(),
     private val userProfileRepository: UserProfileRepository = DefaultUserProfileRepository(),
-    private val examProfileRepository: com.example.meritrankerstudent.data.repository.ExamProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository()
+    private val examProfileRepository: com.example.meritrankerstudent.data.repository.ExamProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository(),
+    private val practiceGenerationCoordinator: PracticeGenerationCoordinator? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoubtUiState())
@@ -148,10 +150,63 @@ class AskDoubtViewModel(
             }
         }
 
-        // 3. Observe Messages
+        // 3. Observe Messages and Merge Live Generation States
         viewModelScope.launch {
             repository.messages.collect { messageList ->
-                _uiState.update { it.copy(messages = messageList, isLoadingMessages = false) }
+                val activeTasks = practiceGenerationCoordinator?.tasks?.value ?: emptyMap()
+                val merged = messageList.map { msg ->
+                    val task = msg.practiceTestId?.let { activeTasks[it] }
+                    if (task != null) {
+                        msg.copy(
+                            practiceStatus = task.status.name,
+                            practiceReadyQuestions = task.readyCount,
+                            practiceTotalQuestions = if (task.questionCount > 0) task.questionCount else msg.practiceTotalQuestions,
+                            isPracticeGenerating = (task.status == com.example.meritrankerstudent.data.model.PracticeGenerationStatus.GENERATING),
+                            practiceTitle = task.title ?: msg.practiceTitle
+                        )
+                    } else {
+                        msg
+                    }
+                }
+                _uiState.update { it.copy(messages = merged, isLoadingMessages = false) }
+
+                // Register coordinator for any testId not yet tracked
+                messageList.forEach { msg ->
+                    msg.practiceTestId?.let { testId ->
+                        practiceGenerationCoordinator?.trackGeneration(
+                            testId = testId,
+                            conversationId = _uiState.value.activeConversationId,
+                            initialTitle = msg.practiceTitle ?: "Practice Quiz",
+                            initialType = "QUIZ",
+                            questionCount = msg.practiceTotalQuestions
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. Observe Generation Coordinator tasks directly to update live cards
+        practiceGenerationCoordinator?.let { coord ->
+            viewModelScope.launch {
+                coord.tasks.collect { taskMap ->
+                    _uiState.update { current ->
+                        val updated = current.messages.map { msg ->
+                            val task = msg.practiceTestId?.let { taskMap[it] }
+                            if (task != null) {
+                                msg.copy(
+                                    practiceStatus = task.status.name,
+                                    practiceReadyQuestions = task.readyCount,
+                                    practiceTotalQuestions = if (task.questionCount > 0) task.questionCount else msg.practiceTotalQuestions,
+                                    isPracticeGenerating = (task.status == com.example.meritrankerstudent.data.model.PracticeGenerationStatus.GENERATING),
+                                    practiceTitle = task.title ?: msg.practiceTitle
+                                )
+                            } else {
+                                msg
+                            }
+                        }
+                        current.copy(messages = updated)
+                    }
+                }
             }
         }
 

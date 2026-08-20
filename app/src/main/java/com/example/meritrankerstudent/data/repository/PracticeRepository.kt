@@ -175,14 +175,30 @@ class RealPracticeRepository(
     override suspend fun getPracticeSummary(activityId: String): PracticeActivitySummary {
         val ownerUserId = getOwnerUserId()
         val cached = database?.practiceDao()?.getActivitySync(activityId)
-        if (cached != null && FreshnessPolicy.evaluate(cached.lastSyncedAt, FreshnessPolicy.PRACTICE_CATALOGUE_TTL_MS) == FreshnessStatus.FRESH) {
+        val isCachedTerminal = cached != null && (
+            cached.generationStatus == "READY" ||
+            cached.generationStatus == "FAILED" ||
+            cached.generationStatus == "CANCELLED" ||
+            cached.generationStatus == "EXPIRED" ||
+            cached.playable
+        )
+
+        if (isCachedTerminal && FreshnessPolicy.evaluate(cached!!.lastSyncedAt, FreshnessPolicy.PRACTICE_CATALOGUE_TTL_MS) == FreshnessStatus.FRESH) {
             return EntityMappers.entityToPracticeActivity(cached)
         }
 
-        val token = requireAuthToken()
-        val summary = client.getPracticeActivitySummary(activityId, token)
-        database?.practiceDao()?.upsertActivity(EntityMappers.practiceActivityToEntity(summary, ownerUserId))
-        return summary
+        return try {
+            val token = requireAuthToken()
+            val summary = client.getPracticeActivitySummary(activityId, token)
+            database?.practiceDao()?.upsertActivity(EntityMappers.practiceActivityToEntity(summary, ownerUserId))
+            summary
+        } catch (e: Exception) {
+            if (cached != null) {
+                EntityMappers.entityToPracticeActivity(cached)
+            } else {
+                throw e
+            }
+        }
     }
 
     override suspend fun startOrResumeAttempt(activityId: String): PracticeStartPayload {

@@ -516,6 +516,20 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
             cursor.use { if (it.moveToFirst()) mapActivity(it) else null }
         }
 
+        override suspend fun getNonTerminalActivities(ownerUserId: String): List<CachedPracticeActivityEntity> = withContext(Dispatchers.IO) {
+            queryActivities(
+                "ownerUserId = ? AND (generationStatus IS NULL OR generationStatus NOT IN ('READY', 'FAILED', 'CANCELLED', 'EXPIRED', 'INTERRUPTED'))",
+                arrayOf(ownerUserId)
+            )
+        }
+
+        override fun observeNonTerminalActivities(ownerUserId: String): Flow<List<CachedPracticeActivityEntity>> = flow {
+            emit(getNonTerminalActivities(ownerUserId))
+            tableChangeNotifier.collect {
+                if (it == "cached_practice_activities") emit(getNonTerminalActivities(ownerUserId))
+            }
+        }.flowOn(Dispatchers.IO)
+
         override suspend fun upsertActivity(activity: CachedPracticeActivityEntity) = withContext(Dispatchers.IO) {
             db.insertWithOnConflict("cached_practice_activities", null, activityToValues(activity), SQLiteDatabase.CONFLICT_REPLACE)
             notifyTableChanged("cached_practice_activities")

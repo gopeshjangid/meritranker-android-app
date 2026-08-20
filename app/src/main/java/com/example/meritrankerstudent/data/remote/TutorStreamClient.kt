@@ -18,21 +18,27 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 sealed interface TutorStreamEvent {
+    data class Status(val stage: String?, val label: String?, val requestId: String?) : TutorStreamEvent
     data class Chunk(val text: String, val requestId: String?) : TutorStreamEvent
     data class Completed(
         val finalAnswer: String,
         val requestId: String?,
         val actionRoute: String? = null,
         val actionText: String? = null,
-        val practiceTestId: String? = null
+        val practiceTestId: String? = null,
+        val responseType: String? = null,
+        val title: String? = null,
+        val questionCount: Int? = null
     ) : TutorStreamEvent
     data class PracticeGenerationStarted(
         val practiceTestId: String,
         val status: String,
-        val message: String,
+        val message: String?,
+        val title: String? = null,
+        val questionCount: Int? = null,
         val requestId: String?
     ) : TutorStreamEvent
-    data class Error(val message: String) : TutorStreamEvent
+    data class Error(val message: String, val code: String? = null, val retryable: Boolean = false) : TutorStreamEvent
 }
 
 data class TutorRequestPayload(
@@ -92,9 +98,9 @@ class TutorStreamClient(
 
         val candidateUrls = if (endpointUrl.contains("10.0.2.2:3000")) {
             listOf(
-                endpointUrl,
                 endpointUrl.replace("10.0.2.2:3000", "127.0.0.1:3000"),
-                endpointUrl.replace("10.0.2.2:3000", "localhost:3000")
+                endpointUrl.replace("10.0.2.2:3000", "localhost:3000"),
+                endpointUrl
             ).distinct()
         } else {
             listOf(endpointUrl)
@@ -150,62 +156,157 @@ class TutorStreamClient(
 
             while (withContext(Dispatchers.IO) { reader.readLine() }.also { line = it } != null) {
                 val currentLine = line?.trim() ?: continue
-                if (currentLine.startsWith("data:")) {
-                    val dataJsonStr = currentLine.removePrefix("data:").trim()
-                    if (dataJsonStr.isEmpty()) continue
+                val isSseData = currentLine.startsWith("data:")
+                val dataJsonStr = if (isSseData) {
+                    currentLine.removePrefix("data:").trim()
+                } else if (currentLine.startsWith("{") && currentLine.endsWith("}")) {
+                    currentLine
+                } else {
+                    ""
+                }
+                if (dataJsonStr.isEmpty()) continue
 
-                    try {
-                        val json = JSONObject(dataJsonStr)
-                        val type = json.optString("type")
-                        val requestId = json.optNullableString("request_id")
+                try {
+                    val json = JSONObject(dataJsonStr)
+                    val type = json.optString("type")
+                    val requestId = json.optNullableString("request_id")
 
-                        when (type) {
-                            "chunk" -> {
-                                val content = json.optNullableString("content")
-                                if (!content.isNullOrEmpty()) {
-                                    accumulatedText += content
-                                    emit(TutorStreamEvent.Chunk(text = content, requestId = requestId))
-                                }
+                    when (type) {
+                        "status" -> {
+                            val stage = json.optNullableString("stage")
+                            val label = json.optNullableString("label")
+                            emit(TutorStreamEvent.Status(stage = stage, label = label, requestId = requestId))
+                        }
+                        "chunk" -> {
+                            val content = json.optNullableString("content")
+                            if (!content.isNullOrEmpty()) {
+                                accumulatedText += content
+                                emit(TutorStreamEvent.Chunk(text = content, requestId = requestId))
                             }
-                            "practice_generation_started" -> {
-                                val dataObj = json.optJSONObject("data")
-                                val practiceTestId = dataObj?.optNullableString("practiceTestId")
-                                    ?: json.optNullableString("practiceTestId")
-                                val status = dataObj?.optNullableString("status") ?: "GENERATING"
-                                val message = dataObj?.optNullableString("message") ?: "Preparing your practice set..."
-                                if (!practiceTestId.isNullOrEmpty()) {
-                                    emit(
-                                        TutorStreamEvent.PracticeGenerationStarted(
-                                            practiceTestId = practiceTestId,
-                                            status = status,
-                                            message = message,
-                                            requestId = requestId
-                                        )
+                        }
+                        "practice_generation_started" -> {
+                            val dataObj = json.optJSONObject("data")
+                            val practiceTestId = dataObj?.optNullableString("practiceTestId")
+                                ?: json.optNullableString("practiceTestId")
+                            val status = dataObj?.optNullableString("status") ?: "GENERATING"
+                            val message = dataObj?.optNullableString("message")
+                                ?: json.optNullableString("message")
+                            val title = dataObj?.optNullableString("title")
+                                ?: json.optNullableString("title")
+                            val questionCount = if (dataObj?.has("questionCount") == true && !dataObj.isNull("questionCount")) {
+                                dataObj.optInt("questionCount")
+                            } else if (json.has("questionCount") && !json.isNull("questionCount")) {
+                                json.optInt("questionCount")
+                            } else {
+                                null
+                            }
+
+                            if (!practiceTestId.isNullOrEmpty()) {
+                                emit(
+                                    TutorStreamEvent.PracticeGenerationStarted(
+                                        practiceTestId = practiceTestId,
+                                        status = status,
+                                        message = message,
+                                        title = title,
+                                        questionCount = questionCount,
+                                        requestId = requestId
                                     )
-                                }
+                                )
                             }
-                            "complete" -> {
-                                val responseObj = json.optJSONObject("response")
-                                val finalAnswer = responseObj?.optNullableString("answer")
-                                    ?: json.optNullableString("content")
+                        }
+                        "complete" -> {
+                            val responseObj = json.optJSONObject("response")
+                            val contentObj = responseObj?.optJSONObject("content")
+                            val finalAnswer = responseObj?.optNullableString("answer")
+                                ?: contentObj?.optNullableString("value")
+                                ?: json.optNullableString("content")
+                                ?: accumulatedText
+
+                            // Authoritative structured practice card metadata extraction with whitelisting
+                            val rawRoute = responseObj?.optNullableString("action_route")
+                                ?: json.optNullableString("action_route")
+                            val validatedRoute = if (rawRoute != null && ALLOWED_ACTION_ROUTES.contains(rawRoute.uppercase())) {
+                                rawRoute.uppercase()
+                            } else {
+                                null
+                            }
+
+                            val actionText = responseObj?.optNullableString("action_text")
+                                ?: json.optNullableString("action_text")
+
+                            val responseType = responseObj?.optNullableString("responseType")
+                                ?: json.optJSONObject("data")?.optNullableString("responseType")
+                                ?: json.optNullableString("responseType")
+
+                            val practiceTestId = responseObj?.optNullableString("practiceTestId")
+                                ?: json.optNullableString("practiceTestId")
+                                ?: (if (responseType == "practice_generation")
+                                    json.optJSONObject("data")?.optNullableString("practiceTestId") else null)
+
+                            val title = responseObj?.optNullableString("title")
+                                ?: json.optJSONObject("data")?.optNullableString("title")
+                                ?: json.optNullableString("title")
+
+                            val questionCount = if (responseObj?.has("questionCount") == true && !responseObj.isNull("questionCount")) {
+                                responseObj.optInt("questionCount")
+                            } else if (json.has("questionCount") && !json.isNull("questionCount")) {
+                                json.optInt("questionCount")
+                            } else {
+                                null
+                            }
+
+                            emit(
+                                TutorStreamEvent.Completed(
+                                    finalAnswer = finalAnswer,
+                                    requestId = requestId,
+                                    actionRoute = validatedRoute,
+                                    actionText = if (validatedRoute != null) actionText else null,
+                                    practiceTestId = practiceTestId,
+                                    responseType = responseType,
+                                    title = title,
+                                    questionCount = questionCount
+                                )
+                            )
+                        }
+                        "error" -> {
+                            val errorObj = json.optJSONObject("error")
+                            val errorMsg = errorObj?.optNullableString("message")
+                                ?: json.optNullableString("message")
+                                ?: "An error occurred while generating response"
+                            val errorCode = errorObj?.optNullableString("code")
+                                ?: json.optNullableString("code")
+                            val retryable = errorObj?.optBoolean("retryable", false)
+                                ?: json.optBoolean("retryable", false)
+                            emit(TutorStreamEvent.Error(message = errorMsg, code = errorCode, retryable = retryable))
+                        }
+                        else -> {
+                            if (json.has("success") && !json.getBoolean("success")) {
+                                val errAnswer = json.optString("answer", "Unknown AI error")
+                                emit(TutorStreamEvent.Error(errAnswer))
+                            } else if (json.has("answer") || json.has("content") || json.optString("status") == "completed") {
+                                val contentObj = json.optJSONObject("content")
+                                val finalAnswer = json.optNullableString("answer")
+                                    ?: contentObj?.optNullableString("value")
                                     ?: accumulatedText
 
-                                // Authoritative structured practice card metadata extraction with whitelisting
-                                val rawRoute = responseObj?.optNullableString("action_route")
-                                    ?: json.optNullableString("action_route")
+                                val responseType = json.optNullableString("responseType")
+                                    ?: json.optJSONObject("data")?.optNullableString("responseType")
+                                val practiceTestId = json.optNullableString("practiceTestId")
+                                    ?: json.optJSONObject("data")?.optNullableString("practiceTestId")
+                                val title = json.optNullableString("title")
+                                    ?: json.optJSONObject("data")?.optNullableString("title")
+                                val rawRoute = json.optNullableString("action_route")
                                 val validatedRoute = if (rawRoute != null && ALLOWED_ACTION_ROUTES.contains(rawRoute.uppercase())) {
                                     rawRoute.uppercase()
                                 } else {
                                     null
                                 }
-
-                                val actionText = responseObj?.optNullableString("action_text")
-                                    ?: json.optNullableString("action_text")
-
-                                val practiceTestId = responseObj?.optNullableString("practiceTestId")
-                                    ?: json.optNullableString("practiceTestId")
-                                    ?: (if (json.optJSONObject("data")?.optString("responseType") == "practice_generation")
-                                        json.optJSONObject("data")?.optNullableString("practiceTestId") else null)
+                                val actionText = json.optNullableString("action_text")
+                                val questionCount = if (json.has("questionCount") && !json.isNull("questionCount")) {
+                                    json.optInt("questionCount")
+                                } else {
+                                    null
+                                }
 
                                 emit(
                                     TutorStreamEvent.Completed(
@@ -213,20 +314,17 @@ class TutorStreamClient(
                                         requestId = requestId,
                                         actionRoute = validatedRoute,
                                         actionText = if (validatedRoute != null) actionText else null,
-                                        practiceTestId = practiceTestId
+                                        practiceTestId = practiceTestId,
+                                        responseType = responseType,
+                                        title = title,
+                                        questionCount = questionCount
                                     )
                                 )
                             }
-                            else -> {
-                                if (json.has("success") && !json.getBoolean("success")) {
-                                    val errAnswer = json.optString("answer", "Unknown AI error")
-                                    emit(TutorStreamEvent.Error(errAnswer))
-                                }
-                            }
                         }
-                    } catch (e: Exception) {
-                        System.err.println("TutorStreamClient: Error parsing SSE JSON chunk: $dataJsonStr")
                     }
+                } catch (e: Exception) {
+                    System.err.println("TutorStreamClient: Error parsing response chunk: $dataJsonStr")
                 }
             }
             body.close()

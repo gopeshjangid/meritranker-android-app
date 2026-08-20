@@ -50,6 +50,11 @@ fun MainScreen(
     }
     val isImeVisible = WindowInsets.isImeVisible
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coordinator = androidx.compose.runtime.remember { com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context) }
+    val activeCount by coordinator.activeCount.collectAsStateWithLifecycle()
+    val latestReady by coordinator.latestReadyTask.collectAsStateWithLifecycle()
+
     Scaffold(
         bottomBar = {
             AnimatedVisibility(
@@ -66,11 +71,17 @@ fun MainScreen(
                         tonalElevation = 0.dp,
                         windowInsets = WindowInsets.navigationBars
                     ) {
-                        // Item 1: Smart Tutor
+                        // Item 1: Smart Tutor (with subtle generation indicator)
                         NavigationBarItem(
                             selected = currentTab == MainTab.DOUBT,
                             onClick = { viewModel.selectTab(MainTab.DOUBT) },
-                            icon = { Icon(Icons.Default.Star, contentDescription = "Smart Tutor") },
+                            icon = {
+                                SmartTutorNavIcon(
+                                    activeCount = activeCount,
+                                    isReady = latestReady != null,
+                                    isSelected = currentTab == MainTab.DOUBT
+                                )
+                            },
                             label = { Text("Smart Tutor") },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,

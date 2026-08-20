@@ -10,9 +10,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import androidx.navigation3.runtime.NavKey
+import com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator
 import com.example.meritrankerstudent.theme.MeritRankerStudentTheme
 import com.example.meritrankerstudent.ui.update.MandatoryUpdateScreen
+import com.example.meritrankerstudent.util.notification.PracticeNotificationManager
 import com.example.meritrankerstudent.util.review.PlayReviewCoordinator
 import com.example.meritrankerstudent.util.review.PlayUpdateCoordinator
 import com.example.meritrankerstudent.util.review.PlayUpdateState
@@ -20,6 +27,7 @@ import com.example.meritrankerstudent.util.review.PlayUpdateState
 class MainActivity : ComponentActivity() {
 
     private lateinit var updateCoordinator: PlayUpdateCoordinator
+    private var pendingNavKey by mutableStateOf<NavKey?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +39,16 @@ class MainActivity : ComponentActivity() {
 
         // 2. Check for mandatory Google Play updates (suppresses reviews if update is pending)
         updateCoordinator.checkForAppUpdate(this)
+
+        // 3. Restore any in-flight active practice generation tasks across process restarts
+        lifecycleScope.launch {
+            val authRepo = com.example.meritrankerstudent.data.repository.DefaultAuthRepository()
+            val currentUserId = authRepo.getCurrentUserId() ?: "authenticated_student_user"
+            PracticeGenerationCoordinator.getInstance(this@MainActivity).restoreActiveGenerationsOnStartup(currentUserId)
+        }
+
+        // 4. Handle notification deep link
+        handleIntent(intent)
 
         enableEdgeToEdge()
         setContent {
@@ -47,10 +65,27 @@ class MainActivity : ComponentActivity() {
                             onCloseApp = { finishAffinity() }
                         )
                     } else {
-                        MainNavigation()
+                        MainNavigation(initialNavKey = pendingNavKey)
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val navTarget = intent.getStringExtra(PracticeNotificationManager.EXTRA_NAV_TARGET)
+        val testId = intent.getStringExtra(PracticeNotificationManager.EXTRA_TEST_ID)
+        val mode = intent.getStringExtra(PracticeNotificationManager.EXTRA_PRACTICE_MODE) ?: "QUIZ"
+
+        if (navTarget == PracticeNotificationManager.NAV_TARGET_QUESTION_PLAYER && !testId.isNullOrEmpty()) {
+            pendingNavKey = QuestionPlayer(mode = mode, id = testId)
         }
     }
 

@@ -26,7 +26,9 @@ data class ConversationTurn(
     val createdAt: Long = System.currentTimeMillis(),
     val actionText: String? = null,
     val actionRoute: String? = null,
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    val practiceTestId: String? = null,
+    val responseType: String? = null
 )
 
 data class DoubtRequest(

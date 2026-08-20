@@ -79,7 +79,18 @@ import java.util.*
 fun AskDoubtScreen(
     onActionClick: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AskDoubtViewModel = viewModel { AskDoubtViewModel(DefaultDoubtRepository()) }
+    viewModel: AskDoubtViewModel = run {
+        val context = LocalContext.current
+        viewModel {
+            AskDoubtViewModel(
+                repository = DefaultDoubtRepository(),
+                authRepository = com.example.meritrankerstudent.data.repository.DefaultAuthRepository(),
+                userProfileRepository = com.example.meritrankerstudent.data.repository.DefaultUserProfileRepository(),
+                examProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository(),
+                practiceGenerationCoordinator = com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context)
+            )
+        }
+    }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -284,6 +295,9 @@ fun AskDoubtScreen(
         if (drawerState.isOpen != uiState.isHistoryDrawerOpen) {
             viewModel.setHistoryDrawerOpen(drawerState.isOpen)
         }
+        if (drawerState.isOpen) {
+            viewModel.loadConversationHistory()
+        }
     }
 
     LaunchedEffect(uiState.messages.size) {
@@ -474,6 +488,9 @@ fun AskDoubtScreen(
                                 },
                                 onReportClick = { messageId ->
                                     viewModel.openReportDialog(messageId)
+                                },
+                                onCancelGeneration = {
+                                    viewModel.stopGenerating()
                                 }
                             )
                         }
@@ -645,10 +662,9 @@ fun AskDoubtScreen(
                     }
                 }
 
-            // Sticky Bottom Interaction Composer Bar
+            // Sticky Bottom Interaction Composer Bar (Modern AI Platform Parity)
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 4.dp,
+                color = MaterialTheme.colorScheme.background,
                 modifier = Modifier
                     .fillMaxWidth()
                     .imePadding()
@@ -656,28 +672,29 @@ fun AskDoubtScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
                 ) {
-                    // Two-Row Material3 Composer Card
+                    // Unified Floating AI Composer Card
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(22.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                        shadowElevation = 2.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
                             // Selected Image Attachment Chip (Clearable)
                             if (uiState.selectedAttachmentUri != null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
-                                        .padding(bottom = 6.dp)
+                                        .padding(bottom = 8.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Icon(
@@ -690,7 +707,7 @@ fun AskDoubtScreen(
                                     Text(
                                         text = if (uiState.attachmentSource == AttachmentSource.CAMERA) "Camera Photo" else "Attached Image",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     IconButton(
@@ -707,7 +724,7 @@ fun AskDoubtScreen(
                                 }
                             }
 
-                            // ROW 1: Full-Width Editable Text Area (No permanent icons inside)
+                            // Full-Width Editable Text Area
                             MultilineExpandingTextField(
                                 value = uiState.inputText,
                                 onValueChange = { viewModel.onInputTextChange(it) },
@@ -718,9 +735,9 @@ fun AskDoubtScreen(
                                 enabled = !uiState.isAiThinking
                             )
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                            // ROW 2: Bottom Action Rail
+                            // Bottom Action Items Row
                             if (uiState.isVoiceModeActive) {
                                 // ACTIVE VOICE STATE: [ ✕ Cancel ] --- [ 🔴 Listening… ] --- [ ✓ Done ]
                                 Row(
@@ -845,31 +862,45 @@ fun AskDoubtScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     // 1. Plus (+) Attachment Action Button
-                                    IconButton(
+                                    Surface(
                                         onClick = { viewModel.setAttachmentSheetOpen(true) },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                         modifier = Modifier.size(36.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Add attachment",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Add attachment",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
 
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
 
                                     // 2. Idle Mic Button
-                                    IconButton(
+                                    Surface(
                                         onClick = { toggleVoiceListening() },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                         modifier = Modifier.size(36.dp)
                                     ) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_mic),
-                                            contentDescription = "Start voice input",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_mic),
+                                                contentDescription = "Start voice input",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.weight(1f))
@@ -881,43 +912,45 @@ fun AskDoubtScreen(
                                             !uiState.isAttachmentPreparing &&
                                             uiState.attachmentError == null
 
-                                    IconButton(
+                                    Surface(
                                         onClick = { viewModel.sendMessage() },
                                         enabled = isSendEnabled,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (isSendEnabled)
-                                                    MaterialTheme.colorScheme.primary
-                                                else
-                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                            )
+                                        shape = CircleShape,
+                                        color = if (isSendEnabled)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                        contentColor = if (isSendEnabled)
+                                            MaterialTheme.colorScheme.onPrimary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                        modifier = Modifier.size(38.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.Send,
-                                            contentDescription = "Send message",
-                                            tint = if (isSendEnabled)
-                                                MaterialTheme.colorScheme.onPrimary
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                                contentDescription = "Send message",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Extremely Subtle AI Disclaimer (Exact copy: "AI can make mistakes")
+                    // Refined AI Disclaimer
                     Text(
-                        text = "AI can make mistakes",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        text = "MeritRanker AI can make mistakes. Verify important info.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 2.dp, bottom = 4.dp)
+                            .padding(top = 4.dp, bottom = 4.dp)
                     )
                 }
             }
@@ -1190,7 +1223,6 @@ fun SelectedImagePreviewCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultilineExpandingTextField(
     value: String,
@@ -1199,30 +1231,39 @@ fun MultilineExpandingTextField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    TextField(
+    androidx.compose.foundation.text.BasicTextField(
         value = value,
         onValueChange = onValueChange,
         enabled = enabled,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
-        placeholder = {
-            Text(
-                text = placeholder,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        },
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 15.sp,
+            lineHeight = 22.sp
+        ),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier.fillMaxWidth(),
         minLines = 1,
-        maxLines = 6,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-        )
+        maxLines = 5,
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp
+                        )
+                    )
+                }
+                innerTextField()
+            }
+        }
     )
 }
 
@@ -1412,10 +1453,11 @@ fun EmptyChatWelcomeView(
 
         // Action Prompts / Exam Test Generation Chips
         Text(
-            text = if (isHindi) "त्वरित क्रियाएँ ($examLabel)" else "Quick AI Actions ($examLabel)",
-            style = MaterialTheme.typography.labelMedium,
+            text = if (isHindi) "त्वरित क्रियाएँ ($examLabel)" else "QUICK AI ACTIONS ($examLabel)",
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.8.sp
         )
 
         Row(
@@ -1426,17 +1468,16 @@ fun EmptyChatWelcomeView(
         ) {
             actionChips.forEach { (chipLabel, prompt) ->
                 Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(9999.dp))
-                        .clickable { onPromptClick(prompt) },
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                    onClick = { onPromptClick(prompt) },
+                    shape = RoundedCornerShape(9999.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
                 ) {
                     Text(
                         text = chipLabel,
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                     )
                 }
@@ -1445,10 +1486,11 @@ fun EmptyChatWelcomeView(
 
         // Section Title: Sample Direct Questions
         Text(
-            text = if (isHindi) "उदाहरण प्रश्न (Sample Questions)" else "Sample Questions",
-            style = MaterialTheme.typography.labelMedium,
+            text = if (isHindi) "उदाहरण प्रश्न" else "SAMPLE QUESTIONS",
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.8.sp
         )
 
         // Clean Vertical Subject Cards (2 concise items)
@@ -1633,9 +1675,8 @@ fun ConversationHistoryDrawerContent(
                 items(sessions) { session ->
                     val isSelected = session.id == activeSessionId
                     Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectSession(session.id) },
+                        onClick = { onSelectSession(session.id) },
+                        modifier = Modifier.fillMaxWidth(),
                         color = if (isSelected)
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         else
@@ -1769,21 +1810,22 @@ fun DoubtMessageBubble(
     onActionClick: (NavKey) -> Unit,
     onCopyClick: (String) -> Unit,
     onFollowUpClick: (String) -> Unit,
-    onReportClick: (String) -> Unit = {}
+    onReportClick: (String) -> Unit = {},
+    onCancelGeneration: () -> Unit = {}
 ) {
     val isUser = message.sender == "USER"
     val context = LocalContext.current
 
     val bubbleBgColor = if (isUser) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        MaterialTheme.colorScheme.surfaceVariant
     } else {
         MaterialTheme.colorScheme.surface
     }
 
     val borderStroke = if (isUser) {
-        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
     } else {
-        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
     }
 
     val alignment = if (isUser) Alignment.End else Alignment.Start
@@ -1866,18 +1908,18 @@ fun DoubtMessageBubble(
 
                 if (!isUser) {
                     if (message.isPracticeGenerating || (message.practiceTestId != null && message.text.isBlank())) {
+                        val testId = message.practiceTestId ?: "practice_set"
+                        val mode = if (message.actionRoute.equals("MOCK", ignoreCase = true)) "MOCK" else "QUIZ"
                         GeneratingPracticeCard(
-                            testId = message.practiceTestId ?: "practice_set",
+                            testId = testId,
                             title = message.practiceTitle ?: "Practice Quiz",
                             totalQuestions = message.practiceTotalQuestions,
                             readyQuestions = message.practiceReadyQuestions,
                             status = message.practiceStatus,
                             onStartPractice = {
-                                onActionClick(QuizList)
+                                onActionClick(com.example.meritrankerstudent.QuestionPlayer(mode = mode, id = testId))
                             },
-                            onCancel = {
-                                // Handled in ViewModel
-                            }
+                            onCancel = onCancelGeneration
                         )
                     } else {
                         EducationalContentRenderer(
@@ -1896,17 +1938,19 @@ fun DoubtMessageBubble(
 
                 // If practice generation is also present with textual explanation
                 if (!isUser && message.practiceTestId != null && message.text.isNotBlank()) {
+                    val testId = message.practiceTestId
+                    val mode = if (message.actionRoute.equals("MOCK", ignoreCase = true)) "MOCK" else "QUIZ"
                     Spacer(modifier = Modifier.height(12.dp))
                     GeneratingPracticeCard(
-                        testId = message.practiceTestId,
+                        testId = testId,
                         title = message.practiceTitle ?: "Practice Quiz",
                         totalQuestions = message.practiceTotalQuestions,
                         readyQuestions = message.practiceReadyQuestions,
                         status = message.practiceStatus,
                         onStartPractice = {
-                            onActionClick(QuizList)
+                            onActionClick(com.example.meritrankerstudent.QuestionPlayer(mode = mode, id = testId))
                         },
-                        onCancel = {}
+                        onCancel = onCancelGeneration
                     )
                 }
 
@@ -2097,6 +2141,7 @@ fun GeneratingPracticeCard(
     val isGenerating = status == "GENERATING"
     val isReady = status == "READY"
     val isFailed = status == "FAILED"
+    var isStarting by remember { mutableStateOf(false) }
 
     // Lightweight Compose-native rotating gradient shimmer
     val infiniteTransition = rememberInfiniteTransition(label = "borderShimmer")
@@ -2105,7 +2150,7 @@ fun GeneratingPracticeCard(
             initialValue = 0f,
             targetValue = 360f,
             animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                animation = androidx.compose.animation.core.tween(3000, easing = androidx.compose.animation.core.LinearEasing),
+                animation = androidx.compose.animation.core.tween(2800, easing = androidx.compose.animation.core.LinearEasing),
                 repeatMode = androidx.compose.animation.core.RepeatMode.Restart
             ),
             label = "angle"
@@ -2114,19 +2159,21 @@ fun GeneratingPracticeCard(
         remember { mutableFloatStateOf(0f) }
     }
 
-    val animatedBorderBrush = if (isGenerating) {
-        Brush.sweepGradient(
-            listOf(
-                com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
-                com.example.meritrankerstudent.theme.MeritRankerColors.AiCyan,
-                com.example.meritrankerstudent.theme.MeritRankerColors.BrandPurple,
-                com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
+    val animatedBorder = if (isGenerating) {
+        BorderStroke(
+            1.5.dp,
+            Brush.sweepGradient(
+                listOf(
+                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange,
+                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
+                )
             )
         )
     } else if (isReady) {
-        Brush.linearGradient(listOf(com.example.meritrankerstudent.theme.MeritRankerColors.Success, com.example.meritrankerstudent.theme.MeritRankerColors.SuccessDark))
+        BorderStroke(1.dp, com.example.meritrankerstudent.theme.MeritRankerColors.Success.copy(alpha = 0.5f))
     } else {
-        Brush.linearGradient(listOf(com.example.meritrankerstudent.theme.MeritRankerColors.Error, com.example.meritrankerstudent.theme.MeritRankerColors.ErrorDark))
+        BorderStroke(1.dp, com.example.meritrankerstudent.theme.MeritRankerColors.Error.copy(alpha = 0.4f))
     }
 
     Surface(
@@ -2134,63 +2181,106 @@ fun GeneratingPracticeCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
-        border = BorderStroke(1.5.dp, animatedBorderBrush),
-        shadowElevation = if (isGenerating) 4.dp else 1.dp
+        color = MaterialTheme.colorScheme.surface,
+        border = animatedBorder,
+        shadowElevation = if (isGenerating) 3.dp else 1.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row: Badge & Type
+            // Header: Category Badge + Total Questions
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(26.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(
-                                if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success.copy(alpha = 0.2f)
-                                else com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue.copy(alpha = 0.2f)
+                                when {
+                                    isReady -> com.example.meritrankerstudent.theme.MeritRankerColors.Success.copy(alpha = 0.15f)
+                                    isFailed -> com.example.meritrankerstudent.theme.MeritRankerColors.Error.copy(alpha = 0.15f)
+                                    else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue.copy(alpha = 0.15f)
+                                }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (isReady) Icons.Default.Check else Icons.Default.Edit,
+                            imageVector = when {
+                                isReady -> Icons.Default.Check
+                                isFailed -> Icons.Default.Warning
+                                else -> Icons.Default.Edit
+                            },
                             contentDescription = null,
-                            tint = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
-                            modifier = Modifier.size(18.dp)
+                            tint = when {
+                                isReady -> com.example.meritrankerstudent.theme.MeritRankerColors.Success
+                                isFailed -> com.example.meritrankerstudent.theme.MeritRankerColors.Error
+                                else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
+                            },
+                            modifier = Modifier.size(15.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "QUICK PRACTICE",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Text(
+                        text = "QUICK PRACTICE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        letterSpacing = 0.8.sp
+                    )
                 }
-
                 Text(
                     text = "$totalQuestions Questions · ${totalQuestions} min",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Title
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+
+            // Progress Bar (When Generating)
+            if (isGenerating) {
+                val progressFraction = if (totalQuestions > 0 && readyQuestions > 0) {
+                    (readyQuestions.toFloat() / totalQuestions.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                if (progressFraction > 0f) {
+                    LinearProgressIndicator(
+                        progress = { progressFraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
             }
 
             // Progress Status Row
@@ -2202,8 +2292,8 @@ fun GeneratingPracticeCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isGenerating) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(13.dp),
+                            strokeWidth = 1.5.dp,
                             color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
                         )
                     } else {
@@ -2211,26 +2301,30 @@ fun GeneratingPracticeCard(
                             imageVector = if (isReady) Icons.Default.Check else Icons.Default.Warning,
                             contentDescription = null,
                             tint = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.Error,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = when {
-                            isReady -> "Practice questions are ready!"
-                            isFailed -> "Failed to prepare questions."
-                            else -> "Getting your questions ready..."
+                            isReady -> "Practice ready"
+                            isFailed -> "Couldn't create this practice."
+                            else -> "Preparing your practice..."
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = if (isReady) FontWeight.Medium else FontWeight.Normal,
+                        color = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                Text(
-                    text = "$readyQuestions of $totalQuestions ready",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (isGenerating && readyQuestions > 0) {
+                    Text(
+                        text = "$readyQuestions of $totalQuestions ready",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // CTA Action Button Row
@@ -2241,7 +2335,7 @@ fun GeneratingPracticeCard(
                 if (isGenerating) {
                     OutlinedButton(
                         onClick = onCancel,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
@@ -2249,29 +2343,40 @@ fun GeneratingPracticeCard(
                     }
                 } else if (isReady) {
                     Button(
-                        onClick = onStartPractice,
-                        shape = RoundedCornerShape(8.dp),
+                        onClick = {
+                            if (!isStarting) {
+                                isStarting = true
+                                onStartPractice()
+                            }
+                        },
+                        enabled = !isStarting,
+                        shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Start Practice", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isStarting) "Starting..." else "Start Practice",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 } else {
                     OutlinedButton(
                         onClick = onCancel,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
-                        Text("Retry", style = MaterialTheme.typography.labelMedium)
+                        Text("Try Again", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

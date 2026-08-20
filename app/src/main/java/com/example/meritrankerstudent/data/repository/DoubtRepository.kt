@@ -89,7 +89,11 @@ class DefaultDoubtRepository(
                     id = "ai_${turn.id}",
                     sender = "AI",
                     text = turn.finalAnswer,
-                    timestamp = turn.createdAt + 10
+                    timestamp = turn.createdAt + 10,
+                    actionRoute = turn.actionRoute ?: if (turn.practiceTestId != null) "QUIZ" else null,
+                    actionText = turn.actionText ?: if (turn.practiceTestId != null) "Start Practice" else null,
+                    practiceTestId = turn.practiceTestId,
+                    practiceTitle = if (turn.practiceTestId != null) "Practice Quiz" else null
                 )
             )
         }
@@ -174,6 +178,9 @@ class DefaultDoubtRepository(
                                 msg.copy(
                                     practiceTestId = event.practiceTestId,
                                     isPracticeGenerating = true,
+                                    practiceTitle = event.title ?: msg.practiceTitle ?: "Practice Quiz",
+                                    practiceTotalQuestions = event.questionCount ?: msg.practiceTotalQuestions,
+                                    practiceStatus = "GENERATING",
                                     actionRoute = "QUIZ",
                                     actionText = "Start Practice"
                                 )
@@ -190,13 +197,16 @@ class DefaultDoubtRepository(
                         structuredActionRoute = event.actionRoute
                         structuredActionText = event.actionText
 
+                        val resolvedTestId = event.practiceTestId
                         val updatedList = _messages.value.map { msg ->
                             if (msg.id == "ai_${request.turnId}") {
                                 msg.copy(
                                     text = finalAnswer,
-                                    actionRoute = event.actionRoute ?: if (event.practiceTestId != null) "QUIZ" else null,
-                                    actionText = event.actionText ?: if (event.practiceTestId != null) "Start Practice" else null,
-                                    practiceTestId = event.practiceTestId ?: msg.practiceTestId
+                                    actionRoute = event.actionRoute ?: if (resolvedTestId != null || msg.practiceTestId != null) "QUIZ" else null,
+                                    actionText = event.actionText ?: if (resolvedTestId != null || msg.practiceTestId != null) "Start Practice" else null,
+                                    practiceTestId = resolvedTestId ?: msg.practiceTestId,
+                                    practiceTitle = event.title ?: msg.practiceTitle,
+                                    practiceTotalQuestions = event.questionCount ?: msg.practiceTotalQuestions
                                 )
                             } else {
                                 msg
@@ -204,6 +214,9 @@ class DefaultDoubtRepository(
                         }
                         _messages.value = updatedList
                         android.util.Log.d("MeritRankerChat", "STREAM_COMPLETED conversationId=${request.conversationId} turnId=${request.turnId}")
+                    }
+                    is TutorStreamEvent.Status -> {
+                        // Handled by UI thinking indicator if needed
                     }
                     is TutorStreamEvent.Error -> {
                         if (accumulatedAnswer.isEmpty()) {
@@ -243,6 +256,7 @@ class DefaultDoubtRepository(
             }
         }
 
+        val aiMessageInList = _messages.value.firstOrNull { it.id == "ai_${request.turnId}" }
         val completedTurn = ConversationTurn(
             id = request.turnId,
             conversationId = request.conversationId,
@@ -252,9 +266,11 @@ class DefaultDoubtRepository(
             examId = request.examId,
             language = request.language,
             createdAt = System.currentTimeMillis(),
-            actionRoute = structuredActionRoute,
-            actionText = structuredActionText,
-            imageUri = request.imageUri
+            actionRoute = structuredActionRoute ?: aiMessageInList?.actionRoute,
+            actionText = structuredActionText ?: aiMessageInList?.actionText,
+            imageUri = request.imageUri,
+            practiceTestId = aiMessageInList?.practiceTestId,
+            responseType = if (aiMessageInList?.practiceTestId != null) "practice_generation" else null
         )
 
         val convList = localTurnsMap.getOrPut(request.conversationId) { mutableListOf() }

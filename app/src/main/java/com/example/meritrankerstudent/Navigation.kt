@@ -27,14 +27,27 @@ import com.example.meritrankerstudent.ui.practice.PyqListScreen
 import com.example.meritrankerstudent.ui.practice.WrongQuestionsListScreen
 import com.example.meritrankerstudent.ui.player.QuestionPlayerScreen
 import com.example.meritrankerstudent.ui.player.ResultFeedbackScreen
+import androidx.compose.runtime.remember
+import androidx.navigation3.runtime.NavKey
+import com.example.meritrankerstudent.data.repository.DefaultDoubtRepository
 import com.example.meritrankerstudent.ui.doubt.AskDoubtViewModel
 import com.example.meritrankerstudent.ui.doubt.ConversationHistoryScreen
 
 @Composable
 fun MainNavigation(
     authViewModel: AuthViewModel = viewModel(),
-    askDoubtViewModel: AskDoubtViewModel = viewModel()
+    initialNavKey: NavKey? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val askDoubtViewModel: AskDoubtViewModel = viewModel {
+        AskDoubtViewModel(
+            repository = DefaultDoubtRepository(),
+            authRepository = com.example.meritrankerstudent.data.repository.DefaultAuthRepository(),
+            userProfileRepository = com.example.meritrankerstudent.data.repository.DefaultUserProfileRepository(),
+            examProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository(),
+            practiceGenerationCoordinator = com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context)
+        )
+    }
     val sessionState by authViewModel.sessionState.collectAsStateWithLifecycle()
 
     when (val state = sessionState) {
@@ -96,7 +109,11 @@ fun MainNavigation(
             )
         }
         is SessionState.Ready -> {
-            val backStack = rememberNavBackStack(Main)
+            val backStack = if (initialNavKey != null) {
+                rememberNavBackStack(Main, initialNavKey)
+            } else {
+                rememberNavBackStack(Main)
+            }
 
             androidx.compose.runtime.LaunchedEffect(backStack.lastOrNull()) {
                 val key = backStack.lastOrNull() ?: return@LaunchedEffect
