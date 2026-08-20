@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>MeritRanker - AI Solution</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .math-gradient {
+            background: linear-gradient(135deg, rgba(0, 207, 232, 0.1) 0%, rgba(108, 233, 255, 0.05) 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2c3545;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "surface-variant": "#2c3545",
+                        "surface": "#0a1322",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "on-surface-variant": "#bbc9cc",
+                        "surface-tint": "#28d9f3",
+                        "on-secondary-container": "#aeb9d0",
+                        "tertiary": "#acdfff",
+                        "on-surface": "#dae2f8",
+                        "on-primary-fixed": "#001f24",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-low": "#131c2b",
+                        "tertiary-fixed-dim": "#7bd0ff",
+                        "outline": "#859396",
+                        "primary-fixed": "#9eefff",
+                        "on-primary-container": "#00545f",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#d8e3fb",
+                        "error": "#ffb4ab",
+                        "on-primary": "#00363e",
+                        "primary-container": "#00cfe8",
+                        "on-tertiary-fixed": "#001e2c",
+                        "background": "#0a1322",
+                        "primary-fixed-dim": "#28d9f3",
+                        "on-secondary": "#263143",
+                        "on-tertiary-container": "#005270",
+                        "tertiary-container": "#59c8ff",
+                        "on-tertiary-fixed-variant": "#004c69",
+                        "inverse-surface": "#dae2f8",
+                        "secondary-container": "#3e495d",
+                        "on-tertiary": "#00354a",
+                        "tertiary-fixed": "#c4e7ff",
+                        "surface-container": "#17202f",
+                        "on-secondary-fixed": "#111c2d",
+                        "surface-container-lowest": "#050e1d",
+                        "inverse-primary": "#006876",
+                        "outline-variant": "#3c494c",
+                        "primary": "#6ce9ff",
+                        "inverse-on-surface": "#283141",
+                        "secondary": "#bcc7de",
+                        "surface-container-highest": "#2c3545",
+                        "on-background": "#dae2f8",
+                        "error-container": "#93000a",
+                        "surface-bright": "#31394a",
+                        "surface-dim": "#0a1322",
+                        "surface-container-high": "#212a3a",
+                        "on-primary-fixed-variant": "#004e59"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter-mobile": "16px",
+                        "container-max": "1280px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "unit": "4px",
+                        "gutter-desktop": "24px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Hanken Grotesk"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center h-16 px-margin-mobile md:px-margin-desktop bg-surface-container/80 backdrop-blur-xl border-b border-outline-variant transition-all duration-300">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant">
+<img alt="User student profile avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6HLzh5ASBdOPNEHUe9vtlsq-wN8vMgp9IJGHU6iKCycczPxaNbzw-sDSVHx3c495jmnD8oVh3v7QWeNzxinj9DnFvQobtjUaxcMlgWggjhoc9rame09EO6YEw-Z_fedF41qD7rZA3ss1-MUIMPkpybMt3IlBTThA46WfvrsCskKEeBaLJbuVQHRLACZbpZavwe774Z2s6YgsKydHfuVrF6y8ViskYJVaOgFzNliQ30y4HMDRdhMbQdDMQJUu2W9fI-VfOlNssxSo"/>
+</div>
+<h1 class="font-headline-md text-headline-md text-primary-container dark:text-primary tracking-tight font-bold">MeritRanker</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-primary hover:bg-surface-variant/50 transition-colors duration-200 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</header>
+<main class="flex-1 mt-16 pb-40 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Pinned Query -->
+<section class="mt-6">
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex items-center gap-3 shadow-sm shadow-md"><div class="flex items-center gap-3 w-full"><span class="material-symbols-outlined text-primary text-[18px]" data-icon="push_pin" style="font-variation-settings: 'FILL' 1;">push_pin</span><p class="font-label-sm text-label-sm text-on-surface-variant truncate">Solve: x² - 5x + 6 = 0</p><div class="ml-auto flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span><span class="font-label-sm text-label-sm text-primary uppercase tracking-widest text-[10px]">Solving</span></div></div></div>
+</section>
+<!-- Advanced Solution Area -->
+<section class="mt-6 bg-surface-container rounded-2xl border border-outline-variant overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-700"><div class="p-6 space-y-8"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-primary" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span><h2 class="font-headline-sm text-headline-sm text-on-surface">Doubt Solver</h2></div><div class="grid grid-cols-1 lg:grid-cols-12 gap-8"><div class="lg:col-span-7 space-y-8"><div class="relative pl-10 border-l-2 border-outline-variant ml-3 mb-8"><div class="absolute -left-[17px] top-0 w-8 h-8 rounded-full bg-surface-container-highest border-2 border-primary flex items-center justify-center font-bold text-primary text-sm">1</div><p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Given the quadratic equation <span class="bg-surface-variant px-2 py-0.5 rounded text-primary">x² - 5x + 6 = 0</span>, we need two numbers that multiply to <span class="font-bold text-on-surface">6</span> and add up to <span class="font-bold text-on-surface">-5</span>.</p></div><div class="relative pl-10 border-l-2 border-outline-variant ml-3 mb-8"><div class="absolute -left-[17px] top-0 w-8 h-8 rounded-full bg-surface-container-highest border-2 border-primary flex items-center justify-center font-bold text-primary text-sm">2</div><p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">The two numbers are <span class="text-tertiary">-2</span> and <span class="text-tertiary">-3</span>. Rewrite the equation:<br/><span class="block mt-3 font-mono bg-surface-container-lowest p-3 rounded-lg text-center border border-outline-variant/30 text-on-surface">x² - 2x - 3x + 6 = 0</span></p></div><div class="relative pl-10 ml-3"><div class="absolute -left-[17px] top-0 w-8 h-8 rounded-full bg-surface-container-highest border-2 border-primary flex items-center justify-center font-bold text-primary text-sm">3</div><p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Group the terms: <span class="text-on-surface">x(x - 2) - 3(x - 2) = 0</span><br/>Common factor: <span class="text-on-surface font-bold text-lg">(x - 2)(x - 3) = 0</span></p></div></div><div class="lg:col-span-5"><div class="bg-surface-container-lowest rounded-xl border border-outline-variant/50 overflow-hidden"><div class="p-3 border-b border-outline-variant/30 bg-surface-container-high/50 flex justify-between items-center"><span class="font-label-sm text-label-sm text-on-surface-variant">Visualization</span><span class="material-symbols-outlined text-primary text-[18px]" data-icon="show_chart">show_chart</span></div><div class="aspect-square relative p-6"><svg class="w-full h-full text-outline-variant" viewbox="0 0 200 200"><line stroke="currentColor" stroke-width="1" x1="0" x2="200" y1="100" y2="100"></line><line stroke="currentColor" stroke-width="1" x1="100" x2="100" y1="0" y2="200"></line><path d="M 40 40 Q 100 220 160 40" fill="none" stroke="#00cfe8" stroke-linecap="round" stroke-width="3"></path><circle cx="125" cy="100" fill="#00cfe8" r="4"></circle><circle cx="145" cy="100" fill="#00cfe8" r="4"></circle><text fill="#acdfff" font-size="10" text-anchor="middle" x="125" y="90">x=2</text><text fill="#acdfff" font-size="10" text-anchor="middle" x="145" y="90">x=3</text></svg></div><div class="p-3 bg-surface-container-high/30"><p class="font-label-sm text-label-sm text-on-surface-variant italic text-center">Roots at intersection points (2,0) and (3,0)</p></div></div></div></div><div class="pt-8 border-t border-outline-variant/30"><div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-primary text-[20px]" data-icon="verified">verified</span><h3 class="font-label-md text-label-md text-primary uppercase tracking-widest">Final Results</h3></div><div class="grid grid-cols-2 gap-4"><div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 text-center"><div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Root 1</div><div class="font-headline-md text-headline-md text-primary font-bold">x = 2</div></div><div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 text-center"><div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Root 2</div><div class="font-headline-md text-headline-md text-primary font-bold">x = 3</div></div></div></div></div></section>
+</main>
+<!-- Sticky Bottom Interaction Layer -->
+<div class="fixed bottom-0 left-0 w-full z-40">
+<!-- Suggestion Chips -->
+<div class="px-margin-mobile md:px-margin-desktop py-4 bg-gradient-to-t from-background via-background to-transparent pb-0">
+<div class="flex overflow-x-auto gap-2 custom-scrollbar pb-2 no-scrollbar">
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-surface-container-low text-on-surface hover:border-primary transition-all duration-200 flex items-center gap-2 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="psychology">psychology</span>
+                    Explain this concept
+                </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-surface-container-low text-on-surface hover:border-primary transition-all duration-200 flex items-center gap-2 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit_square">edit_square</span>
+                    Practice similar questions
+                </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-surface-container-low text-on-surface hover:border-primary transition-all duration-200 flex items-center gap-2 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="insert_chart">insert_chart</span>
+                    Show graph
+                </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-surface-container-low text-on-surface hover:border-primary transition-all duration-200 flex items-center gap-2 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+                    Download PDF
+                </button>
+</div>
+</div>
+<!-- Input Bar Container -->
+<div class="px-margin-mobile md:px-margin-desktop md:pb-8 pb-20">
+<div class="max-w-container-max mx-auto bg-surface-container-high border border-outline-variant rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-variant/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant" placeholder="Ask MeritRanker Guru..." type="text"/>
+<div class="flex items-center gap-1">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-variant/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="image">image</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-variant/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary-container text-on-primary-container hover:opacity-90 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe pt-2 h-20 bg-surface-container/90 backdrop-blur-20px border-t border-outline-variant shadow-lg md:hidden">
+<button class="flex flex-col items-center justify-center text-primary-container dark:text-primary-fixed-dim bg-primary-container/10 rounded-xl px-4 py-1 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-label-sm text-label-sm">Ask Doubt</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="edit_square">edit_square</span>
+<span class="font-label-sm text-label-sm">Practice</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="assignment_turned_in">assignment_turned_in</span>
+<span class="font-label-sm text-label-sm">Mock Test</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+<span class="font-label-sm text-label-sm">PYP</span>
+</button>
+</nav>
+<script>
+        // Micro-interaction for steps appearance
+        document.addEventListener('DOMContentLoaded', () => {
+            const steps = document.querySelectorAll('.pl-8');
+            steps.forEach((step, index) => {
+                step.style.opacity = '0';
+                step.style.transform = 'translateX(-10px)';
+                setTimeout(() => {
+                    step.style.transition = 'all 0.5s ease-out';
+                    step.style.opacity = '1';
+                    step.style.transform = 'translateX(0)';
+                }, 200 * (index + 1));
+            });
+        });
+    </script>
+</body></html>

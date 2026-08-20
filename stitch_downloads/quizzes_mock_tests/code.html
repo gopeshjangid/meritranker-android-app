@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SSC CGL - Mock Tests</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #0a1322;
+            color: #dae2f8;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(45, 55, 72, 0.5);
+        }
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #6ce9ff;
+            box-shadow: 0 0 8px #6ce9ff;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed": "#001f24",
+                        "surface-bright": "#31394a",
+                        "on-surface": "#dae2f8",
+                        "error-container": "#93000a",
+                        "surface-tint": "#28d9f3",
+                        "outline-variant": "#3c494c",
+                        "tertiary": "#acdfff",
+                        "tertiary-fixed": "#c4e7ff",
+                        "outline": "#859396",
+                        "on-tertiary-container": "#005270",
+                        "on-secondary-container": "#aeb9d0",
+                        "surface": "#0a1322",
+                        "surface-container": "#17202f",
+                        "secondary-container": "#3e495d",
+                        "on-background": "#dae2f8",
+                        "on-primary-container": "#00545f",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-tertiary-fixed-variant": "#004c69",
+                        "surface-variant": "#2c3545",
+                        "on-primary-fixed-variant": "#004e59",
+                        "primary": "#6ce9ff",
+                        "surface-container-high": "#212a3a",
+                        "on-tertiary-fixed": "#001e2c",
+                        "on-secondary": "#263143",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "surface-container-low": "#131c2b",
+                        "on-tertiary": "#00354a",
+                        "on-secondary-fixed": "#111c2d",
+                        "tertiary-container": "#59c8ff",
+                        "secondary": "#bcc7de",
+                        "inverse-on-surface": "#283141",
+                        "primary-fixed": "#9eefff",
+                        "surface-container-highest": "#2c3545",
+                        "surface-dim": "#0a1322",
+                        "surface-container-lowest": "#050e1d",
+                        "tertiary-fixed-dim": "#7bd0ff",
+                        "on-error": "#690005",
+                        "inverse-primary": "#006876",
+                        "background": "#0a1322",
+                        "on-primary": "#00363e",
+                        "on-surface-variant": "#bbc9cc",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#28d9f3",
+                        "primary-container": "#00cfe8",
+                        "inverse-surface": "#dae2f8",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "gutter-mobile": "16px",
+                        "container-max": "1280px",
+                        "gutter-desktop": "24px",
+                        "unit": "4px",
+                        "margin-desktop": "40px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "label-md": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background min-h-screen pb-24">
+<!-- Top Navigation Bar -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 font-headline-sm text-headline-sm-mobile md:text-headline-sm docked full-width top-0 sticky flex justify-between items-center px-margin-mobile h-16 w-full z-50">
+<div class="flex items-center gap-4">
+<button class="hover:bg-surface-variant/50 transition-colors p-2 rounded-full active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm text-on-surface">SSC CGL</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">notifications</span>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-fixed text-xs font-bold ring-2 ring-primary/20">
+                SP
+            </div>
+</div>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-6">
+<!-- Search & AI Doubt Hook Section -->
+<div class="mb-8 relative">
+<div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+<div class="relative w-full md:max-w-xl">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container border border-outline-variant/50 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-body-md transition-all placeholder:text-on-surface-variant/50" placeholder="Search mocks, topics, or sections..." type="text"/>
+</div>
+<div class="flex items-center gap-2 text-primary font-label-md cursor-pointer group">
+<span class="material-symbols-outlined group-hover:animate-pulse" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label-md text-label-md">Need help? Ask Doubt</span>
+</div>
+</div>
+</div>
+<!-- Filter Tabs -->
+<nav class="flex items-center gap-6 mb-8 overflow-x-auto no-scrollbar border-b border-outline-variant/20">
+<button class="relative pb-3 px-1 text-primary font-label-md text-label-md whitespace-nowrap tab-active">All Tests</button>
+<button class="relative pb-3 px-1 text-on-surface-variant font-label-md text-label-md whitespace-nowrap hover:text-primary transition-colors">Sectional</button>
+<button class="relative pb-3 px-1 text-on-surface-variant font-label-md text-label-md whitespace-nowrap hover:text-primary transition-colors">Full Mock</button>
+<button class="relative pb-3 px-1 text-on-surface-variant font-label-md text-label-md whitespace-nowrap hover:text-primary transition-colors flex items-center gap-2">
+                Live
+                <span class="flex h-2 w-2 rounded-full bg-error"></span>
+</button>
+</nav>
+<!-- Mock List -->
+<div class="space-y-4">
+<!-- Item 1: Live Mock -->
+<div class="glass-card rounded-xl p-5 group hover:border-primary/40 transition-all cursor-pointer">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-primary/10 text-primary border border-primary/30 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                                LIVE
+                            </span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Ends in 02h 45m</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 group-hover:text-primary transition-colors">SSC CGL Tier 1 - Full Mock #15</h3>
+<div class="flex items-center gap-4 text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                60 Mins
+                            </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                                100 Qs
+                            </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">trending_up</span>
+                                12.5k Participated
+                            </div>
+</div>
+</div>
+<button class="bg-primary-container text-on-primary-fixed hover:bg-primary transition-all font-label-md text-label-md px-8 py-3 rounded-lg flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-primary/20">
+                        Take Mock
+                        <span class="material-symbols-outlined">play_arrow</span>
+</button>
+</div>
+</div>
+<!-- Item 2: Recommended -->
+<div class="glass-card rounded-xl p-5 group hover:border-primary/40 transition-all cursor-pointer">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-primary/10 text-primary border border-primary/30 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                                Recommended
+                            </span>
+<span class="text-on-surface-variant font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+                                Based on your Algebra weak zone
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 group-hover:text-primary transition-colors">Quantitative Aptitude - Algebra</h3>
+<div class="flex items-center gap-4 text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                20 Mins
+                            </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                                25 Qs
+                            </div>
+</div>
+</div>
+<button class="border border-primary text-primary hover:bg-primary/10 transition-all font-label-md text-label-md px-8 py-3 rounded-lg flex items-center justify-center gap-2 active:scale-95">
+                        Start Test
+                    </button>
+</div>
+</div>
+<!-- Item 3: Attempted -->
+<div class="glass-card rounded-xl p-5 opacity-80 hover:opacity-100 transition-all cursor-pointer">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-surface-variant/50 text-on-surface-variant border border-outline-variant/30 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                                Attempted
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">English Comprehension</h3>
+<div class="flex items-center gap-4 text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-1 text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[18px]">analytics</span>
+                                Score: 42/50
+                            </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span>
+                                2 days ago
+                            </div>
+</div>
+</div>
+<button class="bg-surface-variant text-on-surface hover:bg-surface-container-highest transition-all font-label-md text-label-md px-8 py-3 rounded-lg flex items-center justify-center gap-2 active:scale-95">
+                        Review Results
+                        <span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Item 4: New -->
+<div class="glass-card rounded-xl p-5 group hover:border-primary/40 transition-all cursor-pointer">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-tertiary-container/20 text-tertiary border border-tertiary/30 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                                New
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 group-hover:text-primary transition-colors">Reasoning - Mix Bag</h3>
+<div class="flex items-center gap-4 text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                15 Mins
+                            </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                                20 Qs
+                            </div>
+</div>
+</div>
+<button class="border border-primary text-primary hover:bg-primary/10 transition-all font-label-md text-label-md px-8 py-3 rounded-lg flex items-center justify-center gap-2 active:scale-95">
+                        Start Test
+                    </button>
+</div>
+</div>
+</div>
+<!-- Featured Section / Bento Hint -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 glass-card rounded-2xl p-8 relative overflow-hidden group">
+<div class="relative z-10">
+<h4 class="font-headline-md text-headline-md text-primary mb-2">Weekly Performance Insight</h4>
+<p class="text-on-surface-variant font-body-md text-body-md mb-6 max-w-lg">Your accuracy in 'General Awareness' has dropped by 12%. Take the specialized remedial mock to improve your ranking.</p>
+<button class="bg-primary/10 text-primary border border-primary/30 px-6 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary hover:text-on-primary-fixed transition-all flex items-center gap-2">
+                        View Analytics
+                        <span class="material-symbols-outlined text-sm">trending_up</span>
+</button>
+</div>
+<!-- Subtle background design element -->
+<div class="absolute -right-8 -bottom-8 w-48 h-48 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700"></div>
+</div>
+<div class="bg-gradient-to-br from-secondary-container to-surface-container rounded-2xl p-6 flex flex-col justify-center items-center text-center border border-outline-variant/30">
+<div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+</div>
+<h5 class="font-headline-sm text-headline-sm mb-1">Rank #422</h5>
+<p class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-widest">Global Leaderboard</p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-6 pb-2 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-t border-outline-variant/30 z-50">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-5 py-1" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">fitness_center</span>
+<span class="font-label-md text-label-md">Practice</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:text-primary transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">quiz</span>
+<span class="font-label-md text-label-md">Ask Doubt</span>
+</a>
+</nav>
+<!-- Floating Action Button for AI Doubt (Optional Contextual Rendering) -->
+<button class="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary-fixed rounded-2xl shadow-xl shadow-primary/30 flex items-center justify-center group active:scale-90 transition-all hover:rotate-6 z-40">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="absolute right-full mr-3 bg-surface-container-highest text-on-surface text-xs py-1 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-outline-variant/30">Ask Doubt</span>
+</button>
+<script>
+        // Micro-interactions for list item hover effects
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body></html>

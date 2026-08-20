@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SSC CGL Mock Test | Elite Precision</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #0a1322;
+            color: #dae2f8;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-card {
+            backdrop-filter: blur(12px);
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(45, 55, 72, 0.5);
+        }
+        .cyan-glow {
+            box-shadow: 0 0 15px rgba(0, 207, 232, 0.15);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#d8e3fb",
+                      "on-error": "#690005",
+                      "surface-bright": "#31394a",
+                      "inverse-primary": "#006876",
+                      "on-tertiary-fixed-variant": "#004c69",
+                      "tertiary-fixed-dim": "#7bd0ff",
+                      "on-secondary-fixed": "#111c2d",
+                      "on-primary": "#00363e",
+                      "surface": "#0a1322",
+                      "surface-container-lowest": "#050e1d",
+                      "on-primary-container": "#00545f",
+                      "surface-container-high": "#212a3a",
+                      "surface-container-low": "#131c2b",
+                      "outline-variant": "#3c494c",
+                      "tertiary-fixed": "#c4e7ff",
+                      "surface-variant": "#2c3545",
+                      "secondary": "#bcc7de",
+                      "inverse-on-surface": "#283141",
+                      "on-primary-fixed": "#001f24",
+                      "surface-tint": "#28d9f3",
+                      "background": "#0a1322",
+                      "primary-fixed-dim": "#28d9f3",
+                      "secondary-fixed-dim": "#bcc7de",
+                      "on-tertiary-container": "#005270",
+                      "on-secondary-fixed-variant": "#3c475a",
+                      "outline": "#859396",
+                      "on-surface": "#dae2f8",
+                      "secondary-container": "#3e495d",
+                      "error-container": "#93000a",
+                      "primary": "#6ce9ff",
+                      "surface-container-highest": "#2c3545",
+                      "on-secondary": "#263143",
+                      "on-tertiary": "#00354a",
+                      "surface-container": "#17202f",
+                      "on-primary-fixed-variant": "#004e59",
+                      "inverse-surface": "#dae2f8",
+                      "surface-dim": "#0a1322",
+                      "primary-container": "#00cfe8",
+                      "on-surface-variant": "#bbc9cc",
+                      "on-background": "#dae2f8",
+                      "on-secondary-container": "#aeb9d0",
+                      "error": "#ffb4ab",
+                      "tertiary": "#acdfff",
+                      "on-error-container": "#ffdad6",
+                      "tertiary-container": "#59c8ff",
+                      "primary-fixed": "#9eefff",
+                      "on-tertiary-fixed": "#001e2c"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter-desktop": "24px",
+                      "unit": "4px",
+                      "margin-mobile": "16px",
+                      "container-max": "1280px",
+                      "gutter-mobile": "16px",
+                      "margin-desktop": "40px"
+              },
+              "fontFamily": {
+                      "body-sm": ["Hanken Grotesk"],
+                      "body-md": ["Hanken Grotesk"],
+                      "headline-sm": ["Hanken Grotesk"],
+                      "headline-md": ["Hanken Grotesk"],
+                      "headline-lg": ["Hanken Grotesk"],
+                      "label-md": ["Hanken Grotesk"],
+                      "headline-lg-mobile": ["Hanken Grotesk"],
+                      "body-lg": ["Hanken Grotesk"],
+                      "label-sm": ["Hanken Grotesk"]
+              },
+              "fontSize": {
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 w-full z-50 sticky top-0">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="school">school</span>
+<h1 class="font-headline-sm text-headline-sm-mobile md:text-headline-sm text-primary">SSC CGL</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-surface-variant/50 transition-colors rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-xs ring-2 ring-primary/20 cursor-pointer overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A close-up professional headshot of a young student in a modern study environment. The lighting is soft and natural, emphasizing a bright, focused academic mood. The student has a determined expression, wearing minimalist clothing. The background is a slightly blurred corporate office with subtle cyan accents, fitting a premium educational brand aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgillIu293Imo64nKqthIghhrmC309MZxVz1BlfugJwNxIpn3yFMK_NMv5ZaHowkKXGRNZBruvOLUq43Ly7r6Qjvf7LZTBQAySBTPP5RzvF56Z00iG3G8zsP03N7Xctscjo5hnzhHKI4njOmlqG2yLQV7H2reVcmc7ekCc9IlEW96fBCLHoj4H4yKz1VMQQfyyL7QYYugqBE4CasjFNFsiy8fpgTgVried4Yia1UK5HEUvJN4121U2Up8ZZ5tkQQu3y9jYlS3_p3Y"/>
+</div>
+</div>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop mt-6">
+<!-- Search and Filter Section -->
+<section class="space-y-6">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full h-14 pl-12 pr-4 bg-surface-container border border-outline-variant/50 rounded-xl focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 outline-none text-body-md" placeholder="Search for specific mocks or topics..." type="text"/>
+</div>
+<div class="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2">
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-primary text-on-primary font-label-md text-label-md transition-all active:scale-95">All Mocks</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:border-primary/50 transition-all active:scale-95">Sectional</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:border-primary/50 transition-all active:scale-95">Full Length</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:border-primary/50 transition-all active:scale-95">Mini Mocks</button>
+<div class="h-6 w-[1px] bg-outline-variant mx-2"></div>
+<button class="whitespace-nowrap flex items-center gap-1 px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:border-primary/50 transition-all active:scale-95">
+                    Difficulty <span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</section>
+<!-- Recommended / Full Length Mocks -->
+<section class="mt-8">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Full Length Mocks</h2>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Simulate the real exam experience</p>
+</div>
+<button class="text-primary font-label-md text-label-md flex items-center gap-1 hover:underline">
+                    View All <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter-desktop">
+<!-- Mock Card 1 -->
+<div class="glass-card p-6 rounded-xl relative group flex flex-col justify-between hover:border-primary/30 transition-all duration-500 cyan-glow">
+<div class="absolute top-4 right-4 flex gap-2">
+<span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded border border-primary/20 uppercase tracking-wider">Recommended</span>
+</div>
+<div>
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="history_edu">history_edu</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Full Mock #12</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm mb-6">Based on 2023 Tier 1 Pattern. Highly curated questions.</p>
+<div class="grid grid-cols-3 gap-2 py-4 border-y border-outline-variant/30 mb-6">
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Time</p>
+<p class="text-on-surface font-label-md">60m</p>
+</div>
+<div class="text-center border-x border-outline-variant/30">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Qs</p>
+<p class="text-on-surface font-label-md">100</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Marks</p>
+<p class="text-on-surface font-label-md">200</p>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary py-3 rounded-lg text-on-primary font-label-md text-label-md hover:bg-primary-container transition-all active:scale-95 shadow-lg shadow-primary/20">Start Test</button>
+</div>
+<!-- Mock Card 2 (Live) -->
+<div class="glass-card p-6 rounded-xl relative group flex flex-col justify-between hover:border-primary/30 transition-all duration-500">
+<div class="absolute top-4 right-4 flex gap-2">
+<span class="bg-error/10 text-error text-[10px] font-bold px-2 py-1 rounded border border-error/20 uppercase tracking-wider flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-error rounded-full animate-pulse"></span> Live
+                        </span>
+</div>
+<div>
+<div class="w-12 h-12 bg-secondary-container/50 rounded-lg flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-secondary" data-icon="timer">timer</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">All India Mock #05</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm mb-6">Real-time leaderboard. Ends in 04:22:10.</p>
+<div class="grid grid-cols-3 gap-2 py-4 border-y border-outline-variant/30 mb-6">
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Time</p>
+<p class="text-on-surface font-label-md">60m</p>
+</div>
+<div class="text-center border-x border-outline-variant/30">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Qs</p>
+<p class="text-on-surface font-label-md">100</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Marks</p>
+<p class="text-on-surface font-label-md">200</p>
+</div>
+</div>
+</div>
+<button class="w-full border-1.5 border-primary text-primary py-3 rounded-lg font-label-md text-label-md hover:bg-primary/5 transition-all active:scale-95">Register Now</button>
+</div>
+<!-- Mock Card 3 -->
+<div class="glass-card p-6 rounded-xl relative group flex flex-col justify-between hover:border-primary/30 transition-all duration-500">
+<div>
+<div class="w-12 h-12 bg-secondary-container/50 rounded-lg flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-secondary" data-icon="verified">verified</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Previous Year 2022</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm mb-6">Official paper from Dec 1st Shift 1. Essential practice.</p>
+<div class="grid grid-cols-3 gap-2 py-4 border-y border-outline-variant/30 mb-6">
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Time</p>
+<p class="text-on-surface font-label-md">60m</p>
+</div>
+<div class="text-center border-x border-outline-variant/30">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Qs</p>
+<p class="text-on-surface font-label-md">100</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] uppercase text-outline font-bold tracking-tighter">Marks</p>
+<p class="text-on-surface font-label-md">200</p>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary py-3 rounded-lg text-on-primary font-label-md text-label-md hover:bg-primary-container transition-all active:scale-95">Start Test</button>
+</div>
+</div>
+</section>
+<!-- Sectional Tests -->
+<section class="mt-12 mb-12">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-tertiary" data-icon="auto_awesome">auto_awesome</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Sectional Focus</h2>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter-desktop">
+<!-- Quant -->
+<div class="bg-surface-container-high p-5 rounded-xl border border-outline-variant/30 hover:border-tertiary/40 transition-all cursor-pointer group">
+<div class="w-10 h-10 bg-tertiary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary" data-icon="calculate">calculate</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface text-sm mb-1">Quantitative</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">45 Sets Available</p>
+</div>
+<!-- English -->
+<div class="bg-surface-container-high p-5 rounded-xl border border-outline-variant/30 hover:border-tertiary/40 transition-all cursor-pointer group">
+<div class="w-10 h-10 bg-tertiary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary" data-icon="translate">translate</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-sm text-on-surface mb-1">English Lang</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">32 Sets Available</p>
+</div>
+<!-- Reasoning -->
+<div class="bg-surface-container-high p-5 rounded-xl border border-outline-variant/30 hover:border-tertiary/40 transition-all cursor-pointer group">
+<div class="w-10 h-10 bg-tertiary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary" data-icon="psychology">psychology</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-sm text-on-surface mb-1">Reasoning</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">28 Sets Available</p>
+</div>
+<!-- GK -->
+<div class="bg-surface-container-high p-5 rounded-xl border border-outline-variant/30 hover:border-tertiary/40 transition-all cursor-pointer group">
+<div class="w-10 h-10 bg-tertiary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary" data-icon="public">public</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-sm text-on-surface mb-1">General Aware</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">50 Sets Available</p>
+</div>
+</div>
+</section>
+<!-- AI Performance Prediction Bento Item -->
+<section class="glass-card p-8 rounded-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+
+<div class="relative z-10 max-w-lg">
+<div class="inline-flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full mb-4">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="sparkles" style="font-variation-settings: 'FILL' 1;">spark</span>
+<span class="text-primary font-label-sm text-[10px] uppercase tracking-widest font-bold">AI Analytics</span>
+</div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-4">Predict Your Rank</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">Our AI engine analyzes your mock history to predict your actual SSC CGL percentile within a 2% margin. Complete 5 full mocks to unlock precision insights.</p>
+<div class="mt-8 flex gap-4">
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all">
+                        Check My Status <span class="material-symbols-outlined text-sm" data-icon="monitoring">monitoring</span>
+</button>
+</div>
+</div>
+<div class="relative z-10 w-full md:w-64 h-48 bg-surface-container rounded-xl border border-outline-variant/30 p-4 flex flex-col justify-center items-center">
+<div class="text-center">
+<p class="text-on-surface-variant text-label-sm mb-1">Target Score</p>
+<p class="text-primary font-headline-lg text-headline-lg">165.5</p>
+<div class="w-full bg-outline-variant/20 h-2 rounded-full mt-4 overflow-hidden">
+<div class="bg-primary h-full w-3/4 rounded-full"></div>
+</div>
+<p class="text-primary text-[10px] mt-2 font-bold uppercase tracking-widest">Top 5% Tier</p>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-t border-outline-variant/30 fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-6 pb-2 z-50 rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 active:scale-90 duration-200 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-label-md text-label-md mt-0.5">Practice</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:text-primary transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="quiz">quiz</span>
+<span class="font-label-md text-label-md mt-0.5">Ask Doubt</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for hover effects on cards
+        const cards = document.querySelectorAll('.glass-card');
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        // Search highlight effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('cyan-glow');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('cyan-glow');
+        });
+    </script>
+</body></html>

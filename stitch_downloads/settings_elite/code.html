@@ -1,0 +1,312 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Settings - MeritRanker Elite</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0a1322",
+                    "on-tertiary-fixed": "#001e2c",
+                    "primary-container": "#00cfe8",
+                    "on-primary": "#00363e",
+                    "on-secondary": "#263143",
+                    "primary-fixed-dim": "#28d9f3",
+                    "secondary-fixed": "#d8e3fb",
+                    "on-error": "#690005",
+                    "on-primary-container": "#00545f",
+                    "primary-fixed": "#9eefff",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#131c2b",
+                    "outline": "#859396",
+                    "tertiary-fixed-dim": "#7bd0ff",
+                    "surface-variant": "#2c3545",
+                    "secondary-fixed-dim": "#bcc7de",
+                    "on-surface-variant": "#bbc9cc",
+                    "surface": "#0a1322",
+                    "on-secondary-fixed-variant": "#3c475a",
+                    "on-error-container": "#ffdad6",
+                    "on-primary-fixed": "#001f24",
+                    "tertiary": "#acdfff",
+                    "on-surface": "#dae2f8",
+                    "on-secondary-container": "#aeb9d0",
+                    "surface-tint": "#28d9f3",
+                    "surface-bright": "#31394a",
+                    "error-container": "#93000a",
+                    "surface-container-high": "#212a3a",
+                    "on-primary-fixed-variant": "#004e59",
+                    "surface-dim": "#0a1322",
+                    "primary": "#6ce9ff",
+                    "inverse-on-surface": "#283141",
+                    "surface-container-highest": "#2c3545",
+                    "on-background": "#dae2f8",
+                    "secondary": "#bcc7de",
+                    "surface-container": "#17202f",
+                    "tertiary-fixed": "#c4e7ff",
+                    "on-tertiary": "#00354a",
+                    "outline-variant": "#3c494c",
+                    "inverse-primary": "#006876",
+                    "surface-container-lowest": "#050e1d",
+                    "on-secondary-fixed": "#111c2d",
+                    "inverse-surface": "#dae2f8",
+                    "tertiary-container": "#59c8ff",
+                    "on-tertiary-fixed-variant": "#004c69",
+                    "on-tertiary-container": "#005270",
+                    "secondary-container": "#3e495d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "container-max": "1280px",
+                    "gutter-mobile": "16px",
+                    "unit": "4px",
+                    "gutter-desktop": "24px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-sm": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "label-md": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0a1322;
+            color: #dae2f8;
+            font-family: 'Hanken Grotesk', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(23, 32, 47, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(45, 55, 72, 0.5);
+        }
+        .custom-toggle:checked + .toggle-dot {
+            transform: translateX(100%);
+            background-color: #00cfe8;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen pb-24">
+<!-- TopAppBar Shell -->
+<header class="bg-surface-container/80 backdrop-blur-xl border-b border-outline-variant dark:border-outline-variant docked full-width top-0 z-50 sticky">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a young, confident graduate student with a focused expression. The lighting is crisp and cinematic, utilizing a shallow depth of field against a blurred university campus background. The color palette features cool navy tones and subtle cyan highlights, reflecting an elite and technologically advanced academic environment. The overall mood is authoritative and intelligent." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVzS6PjkNtfOOxGaLNNiftdrcRNStwTTHzqXIlnHNrnCjH4pVkHx87Q2AW0AD7RSJwMVTroIFzIW2lFVD-rZ5QvEGVeQw3fSC-DDOeQkivlfDJBcvKKVgnLk4Sf85llyUHKgVxzteLYx5p9m2zMpOGZoE-U7sro69SkZ_AbBj2RG5JQi4--OE0LFiDuZSrRUg8ip1xUqXYyKFI8MR1TX5T93NPRXNHTk4Du8eyLOkPNlP4CCVpjx759myVL0mW-ewaqA1mkXaUe34">
+</div>
+<h1 class="font-headline-md text-headline-md text-primary-container dark:text-primary tracking-tight font-bold">MeritRanker</h1>
+</div>
+<button class="p-2 text-primary dark:text-primary hover:bg-surface-variant/50 transition-colors duration-200 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<main class="max-w-[800px] mx-auto px-margin-mobile md:px-margin-desktop py-8">
+<!-- Page Title -->
+<div class="mb-8">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Profile Settings</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Configure your academic environment and AI preferences.</p>
+</div>
+<!-- Section: Account -->
+<section class="mb-8">
+<h3 class="font-label-md text-label-md text-primary-container uppercase tracking-widest mb-4 px-2">Account</h3>
+<div class="glass-panel rounded-xl overflow-hidden">
+<div class="flex items-center justify-between p-4 hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Profile Info</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Manage your name, email, and goals</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+
+</div>
+</section>
+<!-- Section: Preferences -->
+<section class="mb-8">
+<h3 class="font-label-md text-label-md text-primary-container uppercase tracking-widest mb-4 px-2">Preferences</h3>
+<div class="glass-panel rounded-xl overflow-hidden">
+<!-- Push Notifications -->
+<div class="flex items-center justify-between p-4 border-b border-outline-variant/30">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">notifications</span>
+</div>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Push Notifications</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Alerts for practice and tests</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer custom-toggle" type="checkbox">
+<div class="w-11 h-6 bg-surface-variant rounded-full peer-checked:bg-primary-container/20 transition-all"></div>
+<div class="absolute left-1 top-1 w-4 h-4 bg-on-surface-variant rounded-full transition-all toggle-dot"></div>
+</label>
+</div>
+<!-- Audio/Listen Mode -->
+<div class="flex items-center justify-between p-4 border-b border-outline-variant/30">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">record_voice_over</span>
+</div>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Audio/Listen Mode</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Read out questions and explanations</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer custom-toggle" type="checkbox">
+<div class="w-11 h-6 bg-surface-variant rounded-full peer-checked:bg-primary-container/20 transition-all"></div>
+<div class="absolute left-1 top-1 w-4 h-4 bg-on-surface-variant rounded-full transition-all toggle-dot"></div>
+</label>
+</div>
+<!-- Guru AI Preferences -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+                                Guru AI Preferences
+                                <span class="text-[10px] bg-primary-container text-on-primary-container px-1.5 py-0.5 rounded font-bold uppercase">Pro</span>
+</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Response depth and personalization</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Section: Support & Info -->
+<section class="mb-8">
+<h3 class="font-label-md text-label-md text-primary-container uppercase tracking-widest mb-4 px-2">Support &amp; Info</h3>
+<div class="glass-panel rounded-xl overflow-hidden">
+<div class="flex items-center justify-between p-4 border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">help</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Help Center</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">open_in_new</span>
+</div>
+<div class="flex items-center justify-between p-4 border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">info</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface">About MeritRanker</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-4 hover:bg-surface-variant/30 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">privacy_tip</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Privacy Policy</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Sign Out Button -->
+<div class="mt-12 mb-8">
+<button class="w-full flex items-center justify-center gap-3 bg-error-container text-on-error-container py-4 rounded-xl font-headline-sm text-headline-sm hover:brightness-110 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined">logout</span>
+                Sign Out
+            </button>
+<p class="text-center mt-6 font-label-sm text-label-sm text-on-surface-variant">Version 4.2.0 Elite Edition</p>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe pt-2 h-20 bg-surface-container/90 backdrop-blur-20px border-t border-outline-variant dark:border-outline-variant shadow-lg md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="font-label-sm text-label-sm">Ask Guru AI</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="edit_square">edit_square</span>
+<span class="font-label-sm text-label-sm">Practice</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="assignment_turned_in">assignment_turned_in</span>
+<span class="font-label-sm text-label-sm">Mock Test</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+<span class="font-label-sm text-label-sm">PYP</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interactions for toggles
+        document.querySelectorAll('.custom-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const parent = this.closest('div');
+                if (this.checked) {
+                    console.log('Preference Enabled');
+                } else {
+                    console.log('Preference Disabled');
+                }
+            });
+        });
+
+        // Add subtle parallax effect on scroll for glass panels
+        window.addEventListener('scroll', () => {
+            const panels = document.querySelectorAll('.glass-panel');
+            const scrollPos = window.scrollY;
+            panels.forEach((panel, index) => {
+                const speed = 0.05 * (index + 1);
+                panel.style.transform = `translateY(${scrollPos * speed * -0.1}px)`;
+            });
+        });
+    </script>
+
+
+
+
+</body></html>

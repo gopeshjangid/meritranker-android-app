@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MeritRanker Elite | Profile Setup</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken+Grotesk', sans-serif;
+            background-color: #0a1322;
+            color: #dae2f8;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(45, 55, 72, 0.5);
+        }
+        .exam-card-active {
+            border-color: #00cfe8 !important;
+            background: rgba(0, 207, 232, 0.05) !important;
+            box-shadow: 0 0 15px rgba(0, 207, 232, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2c3545;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#0a1322",
+                        "on-tertiary-fixed": "#001e2c",
+                        "primary-container": "#00cfe8",
+                        "on-primary": "#00363e",
+                        "on-secondary": "#263143",
+                        "primary-fixed-dim": "#28d9f3",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error": "#690005",
+                        "on-primary-container": "#00545f",
+                        "primary-fixed": "#9eefff",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#131c2b",
+                        "outline": "#859396",
+                        "tertiary-fixed-dim": "#7bd0ff",
+                        "surface-variant": "#2c3545",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "on-surface-variant": "#bbc9cc",
+                        "surface": "#0a1322",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#001f24",
+                        "tertiary": "#acdfff",
+                        "on-surface": "#dae2f8",
+                        "on-secondary-container": "#aeb9d0",
+                        "surface-tint": "#28d9f3",
+                        "surface-bright": "#31394a",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#212a3a",
+                        "on-primary-fixed-variant": "#004e59",
+                        "surface-dim": "#0a1322",
+                        "primary": "#6ce9ff",
+                        "inverse-on-surface": "#283141",
+                        "surface-container-highest": "#2c3545",
+                        "on-background": "#dae2f8",
+                        "secondary": "#bcc7de",
+                        "surface-container": "#17202f",
+                        "tertiary-fixed": "#c4e7ff",
+                        "on-tertiary": "#00354a",
+                        "outline-variant": "#3c494c",
+                        "inverse-primary": "#006876",
+                        "surface-container-lowest": "#050e1d",
+                        "on-secondary-fixed": "#111c2d",
+                        "inverse-surface": "#dae2f8",
+                        "tertiary-container": "#59c8ff",
+                        "on-tertiary-fixed-variant": "#004c69",
+                        "on-tertiary-container": "#005270",
+                        "secondary-container": "#3e495d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px",
+                        "gutter-mobile": "16px",
+                        "unit": "4px",
+                        "gutter-desktop": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "label-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 border-b border-outline-variant/30 bg-surface-container/80 backdrop-blur-xl">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md-mobile md:text-headline-md text-primary-container tracking-tight font-bold">MeritRanker</span>
+<div class="hidden md:flex h-6 w-[1px] bg-outline-variant"></div>
+<span class="hidden md:inline font-label-md text-label-md text-primary uppercase tracking-[0.2em]">Elite Onboarding</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+</div>
+</header>
+<main class="flex-grow pt-24 pb-12 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Progress Indicator -->
+<div class="max-w-3xl mx-auto mb-12">
+<div class="flex justify-between items-center mb-4">
+<span class="font-label-md text-label-md text-primary">Step 2 of 3</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Profile Personalization</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-2/3 transition-all duration-700 ease-out"></div>
+</div>
+</div>
+<div class="max-w-4xl mx-auto">
+<div class="mb-10 text-center md:text-left">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Build Your Academic Profile</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">Tailor your learning journey. We use these details to curate specialized mock tests and AI-driven study paths just for you.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop">
+<!-- Left Column: Form Details -->
+<div class="lg:col-span-4 space-y-6">
+<div class="glass-card rounded-xl p-6">
+<label class="block font-label-md text-label-md text-primary mb-3">Date of Birth</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="date" value="2000-01-01"/>
+</div>
+</div>
+<div class="glass-card rounded-xl p-6">
+<label class="block font-label-md text-label-md text-primary mb-3">Higher Education</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all">
+<option>Post Graduate</option>
+<option>Undergraduate</option>
+<option>High School</option>
+<option>Diploma</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<div class="bg-primary-container/5 border border-primary-container/20 rounded-xl p-6 flex items-start gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-primary-fixed">Our MeritAI engine will prioritize content based on your degree level and upcoming exam schedule.</p>
+</div>
+</div>
+</div>
+<!-- Right Column: Exam Multi-select -->
+<div class="lg:col-span-8">
+<div class="glass-card rounded-xl p-8 h-full">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Which exams are you preparing for?</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Select all that apply to your current career path.</p>
+</div>
+<span class="font-label-sm text-label-sm px-3 py-1 bg-surface-variant rounded-full text-secondary">Multi-select enabled</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="examGrid">
+<!-- SSC -->
+<div class="group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container">account_balance</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">SSC</span>
+</div>
+<!-- Banking -->
+<div class="exam-card-active group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-primary-container">payments</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">Banking</span>
+</div>
+<!-- UPSC -->
+<div class="group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container">gavel</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">UPSC</span>
+</div>
+<!-- Railway -->
+<div class="group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container">train</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">Railway</span>
+</div>
+<!-- State PSC -->
+<div class="group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container">map</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">State PSC</span>
+</div>
+<!-- Defence -->
+<div class="group cursor-pointer border border-outline-variant rounded-xl p-5 hover:border-primary-container/50 transition-all bg-surface-container-low flex flex-col items-center text-center gap-3" onclick="toggleExam(this)">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container">military_tech</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">Defence</span>
+</div>
+</div>
+<div class="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6">
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center sm:text-left">
+                                You can update these preferences anytime from your dashboard settings.
+                            </p>
+<button class="w-full sm:w-auto px-8 py-4 bg-primary-container text-on-primary font-label-md text-label-md rounded-xl hover:shadow-[0_0_20px_rgba(0,207,232,0.4)] transition-all active:scale-95 flex items-center justify-center gap-2">
+                                Personalize My Learning
+                                <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Background Atmosphere (SVG Gradient Pattern) -->
+<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-40">
+<div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary-container/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-tertiary-container/5 rounded-full blur-[140px]"></div>
+</div>
+<script>
+        function toggleExam(element) {
+            element.classList.toggle('exam-card-active');
+            const iconContainer = element.querySelector('div');
+            const icon = element.querySelector('.material-symbols-outlined');
+            
+            if (element.classList.contains('exam-card-active')) {
+                iconContainer.classList.remove('bg-surface-variant');
+                iconContainer.classList.add('bg-primary-container/20');
+                icon.classList.remove('text-on-surface-variant');
+                icon.classList.add('text-primary-container');
+            } else {
+                iconContainer.classList.add('bg-surface-variant');
+                iconContainer.classList.remove('bg-primary-container/20');
+                icon.classList.add('text-on-surface-variant');
+                icon.classList.remove('text-primary-container');
+            }
+        }
+    </script>
+</body></html>

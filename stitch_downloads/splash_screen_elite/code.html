@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MeritRanker Elite | Splash</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0a1322",
+                    "on-tertiary-fixed": "#001e2c",
+                    "primary-container": "#00cfe8",
+                    "on-primary": "#00363e",
+                    "on-secondary": "#263143",
+                    "primary-fixed-dim": "#28d9f3",
+                    "secondary-fixed": "#d8e3fb",
+                    "on-error": "#690005",
+                    "on-primary-container": "#00545f",
+                    "primary-fixed": "#9eefff",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#131c2b",
+                    "outline": "#859396",
+                    "tertiary-fixed-dim": "#7bd0ff",
+                    "surface-variant": "#2c3545",
+                    "secondary-fixed-dim": "#bcc7de",
+                    "on-surface-variant": "#bbc9cc",
+                    "surface": "#0a1322",
+                    "on-secondary-fixed-variant": "#3c475a",
+                    "on-error-container": "#ffdad6",
+                    "on-primary-fixed": "#001f24",
+                    "tertiary": "#acdfff",
+                    "on-surface": "#dae2f8",
+                    "on-secondary-container": "#aeb9d0",
+                    "surface-tint": "#28d9f3",
+                    "surface-bright": "#31394a",
+                    "error-container": "#93000a",
+                    "surface-container-high": "#212a3a",
+                    "on-primary-fixed-variant": "#004e59",
+                    "surface-dim": "#0a1322",
+                    "primary": "#6ce9ff",
+                    "inverse-on-surface": "#283141",
+                    "surface-container-highest": "#2c3545",
+                    "on-background": "#dae2f8",
+                    "secondary": "#bcc7de",
+                    "surface-container": "#17202f",
+                    "tertiary-fixed": "#c4e7ff",
+                    "on-tertiary": "#00354a",
+                    "outline-variant": "#3c494c",
+                    "inverse-primary": "#006876",
+                    "surface-container-lowest": "#050e1d",
+                    "on-secondary-fixed": "#111c2d",
+                    "inverse-surface": "#dae2f8",
+                    "tertiary-container": "#59c8ff",
+                    "on-tertiary-fixed-variant": "#004c69",
+                    "on-tertiary-container": "#005270",
+                    "secondary-container": "#3e495d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "container-max": "1280px",
+                    "gutter-mobile": "16px",
+                    "unit": "4px",
+                    "gutter-desktop": "24px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-sm": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "label-md": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+            50% { transform: translateY(-20px) scale(1.05); opacity: 1; }
+        }
+        @keyframes pulse-cyan {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 207, 232, 0.2); }
+            50% { box-shadow: 0 0 50px rgba(0, 207, 232, 0.5); }
+        }
+        .ai-core-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        .glow-effect {
+            animation: pulse-cyan 4s ease-in-out infinite;
+        }
+        .progress-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-overflow-hidden items-center justify-center font-body-md selection:bg-primary-container selection:text-on-primary">
+<!-- Subtle Background Ambient Light -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none">
+<div class="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full blur-[120px]"></div>
+<div class="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-tertiary-container/5 rounded-full blur-[120px]"></div>
+</div>
+<!-- Main Content Container -->
+<main class="relative z-10 w-full max-w-lg px-margin-mobile md:px-margin-desktop flex flex-col items-center">
+<!-- 3D AI Visual Placeholder -->
+<div class="relative mb-12 flex items-center justify-center">
+<div class="absolute inset-0 bg-primary-container/20 blur-3xl rounded-full glow-effect"></div>
+<div class="ai-core-float relative z-20 w-48 h-48 md:w-64 md:h-64 rounded-3xl overflow-hidden border border-outline-variant/30 bg-surface-container-high flex items-center justify-center">
+<img class="w-full h-full object-cover mix-blend-screen opacity-90" data-alt="A futuristic 3D abstract digital sculpture resembling a neural network core, featuring translucent geometric crystals and glowing cyan fiber-optic filaments. The subject is centered in a dark, high-tech void with surgical precision lighting emphasizing sharp edges and deep navy shadows. The aesthetic is elite and academic, using a palette of deep navy and vibrant electric cyan to represent artificial intelligence and high-level data processing." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNJRK9H8newafGkJaZ6aJU0fWucr9AViwmOF8H4bJyCAo-VEVJIfd1yS9di3o1SU5-NpB1z4wt0Dc96cK3hahzXeWgMXHZQjWO-g-8SQ4wgBS63KDMNAd62gd4LYzQOMRwOogztiZoCBAjydv8sSTdBWBH4GFLtQ6FCETj1bOhDtxbOt2xhIepoxFPvjLA30lLAl2TGvtE4A8v-rYsC90xHG8lnSJ04dp7vTYwWZxXCkQpVTi7MjdgSRrmwqkEMQ3KqAcQT2ADjwQ"/>
+<!-- Central Icon Over Image -->
+<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-background/80 to-transparent">
+<span class="material-symbols-outlined text-primary text-[64px] drop-shadow-[0_0_15px_rgba(108,233,255,0.6)]" style="font-variation-settings: 'FILL' 1;">
+                        psychology
+                    </span>
+</div>
+</div>
+</div>
+<!-- Branding -->
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary-container tracking-tight">
+                MeritRanker <span class="text-on-surface font-light">Elite</span>
+</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-[280px] mx-auto leading-relaxed">
+                Learn smarter. Practice better. Rank higher.
+            </p>
+</div>
+<!-- Loading Section -->
+<div class="mt-24 w-full max-w-[240px] space-y-4">
+<div class="flex justify-between items-end px-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-wider uppercase" id="loading-text">
+                    Initializing Guru AI...
+                </span>
+<span class="font-label-sm text-label-sm text-primary-container" id="loading-percentage">0%</span>
+</div>
+<div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full w-0 bg-primary-container transition-all duration-300 ease-out relative" id="progress-bar">
+<div class="absolute inset-0 progress-shimmer"></div>
+</div>
+</div>
+<div class="flex justify-center pt-2">
+<div class="flex gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse [animation-delay:200ms]"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse [animation-delay:400ms]"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Meta -->
+<footer class="fixed bottom-8 w-full text-center">
+<p class="font-label-sm text-label-sm text-outline/40">
+            © 2024 MeritRanker Technologies • Secured by MeritCore
+        </p>
+</footer>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const progressBar = document.getElementById('progress-bar');
+            const percentageText = document.getElementById('loading-percentage');
+            const loadingText = document.getElementById('loading-text');
+            
+            let progress = 0;
+            const stages = [
+                "Initializing Guru AI...",
+                "Syncing Academic Core...",
+                "Loading Ranker Insights...",
+                "Optimizing Workspace...",
+                "Elite Access Granted"
+            ];
+
+            const interval = setInterval(() => {
+                progress += Math.random() * 8;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    loadingText.innerText = stages[stages.length - 1];
+                    loadingText.classList.add('text-primary');
+                    
+                    // Simulation of transition to main app
+                    setTimeout(() => {
+                        document.body.classList.add('opacity-0', 'transition-opacity', 'duration-1000');
+                    }, 500);
+                } else {
+                    // Update Stage Text
+                    const stageIndex = Math.floor((progress / 100) * (stages.length - 1));
+                    loadingText.innerText = stages[stageIndex];
+                }
+
+                progressBar.style.width = `${progress}%`;
+                percentageText.innerText = `${Math.floor(progress)}%`;
+            }, 150);
+        });
+    </script>
+</body></html>
