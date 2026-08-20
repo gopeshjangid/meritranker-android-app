@@ -186,12 +186,24 @@ class AuthViewModel(
                 return@launch // Prevent duplicate sign-in calls
             }
             _sessionState.value = SessionState.SignedOut(isSigningIn = true)
+            com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                com.example.meritrankerstudent.observability.TelemetryEvent.LoginStarted("google")
+            )
             try {
                 val result = authRepository.signInWithGoogle(activity)
                 if (result.nextStep.signInStep == AuthSignInStep.DONE) {
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.LoginSucceeded("google")
+                    )
                     loadProfile()
                 } else {
-                    _sessionState.value = SessionState.SignedOut("Sign-in process incomplete: ${result.nextStep.signInStep}")
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.LoginFailed("google", com.example.meritrankerstudent.observability.ErrorCategory.AUTH)
+                    )
+                    _sessionState.value = SessionState.SignedOut(
+                        error = "Additional authentication step required: ${result.nextStep.signInStep}",
+                        isSigningIn = false
+                    )
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Google sign-in failed", e)
@@ -199,6 +211,13 @@ class AuthViewModel(
                         e.cause is UserCancelledException ||
                         e.message?.contains("cancelled", ignoreCase = true) == true
                 
+                val errorCategory = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(e)
+                if (!isCancel) {
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.LoginFailed("google", errorCategory)
+                    )
+                }
+
                 val errorMessage = if (isCancel) {
                     null // Safe cancellation behavior - don't show error message, just return to idle
                 } else {
@@ -247,13 +266,34 @@ class AuthViewModel(
                         language = language
                     )
                     Log.i("AuthViewModel", "completeProfile updatedProfile: userId=${updatedProfile.userId}, onboardingStep=${updatedProfile.onboardingStep}, profileCompleted=${updatedProfile.profileCompleted}")
+                    
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.OnboardingCompleted(
+                            examProfileId = examProfile.examProfileId,
+                            stage = examProfile.stage,
+                            language = language
+                        )
+                    )
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.setUserProperty("exam_profile_id", examProfile.examProfileId)
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.setUserProperty("study_language", language)
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.setUserProperty("onboarding_status", "completed")
+
                     _sessionState.value = SessionState.Ready(updatedProfile, examProfile)
                 } else {
                     Log.e("AuthViewModel", "Selected exam profile unavailable: preparing='$preparing', stage='$examStage', id='$examProfileId'")
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.OnboardingFailed(
+                            com.example.meritrankerstudent.observability.ErrorCategory.NOT_FOUND
+                        )
+                    )
                     onError?.invoke("This exam setup isn't available yet. Please select another exam.")
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Failed to complete onboarding profile", e)
+                val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(e)
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.OnboardingFailed(category)
+                )
                 onError?.invoke("We couldn't save your preferences. Please try again.")
             }
         }
@@ -267,12 +307,14 @@ class AuthViewModel(
                 userProfileRepository.clearCache()
                 examProfileRepository.clearCache()
                 localProfileStore?.clear()
+                com.example.meritrankerstudent.observability.AppObservability.analytics.resetData()
                 _sessionState.value = SessionState.SignedOut()
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Sign-out failed", e)
                 userProfileRepository.clearCache()
                 examProfileRepository.clearCache()
                 localProfileStore?.clear()
+                com.example.meritrankerstudent.observability.AppObservability.analytics.resetData()
                 _sessionState.value = SessionState.SignedOut("Sign-out failed: ${e.localizedMessage}")
             }
         }
@@ -282,12 +324,16 @@ class AuthViewModel(
         viewModelScope.launch {
             val currentState = _sessionState.value
             _sessionState.value = SessionState.Initialising
+            com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                com.example.meritrankerstudent.observability.TelemetryEvent.AccountDeletionStarted
+            )
             try {
                 val result = authRepository.deleteAccount()
                 if (result.isSuccess) {
                     userProfileRepository.clearCache()
                     examProfileRepository.clearCache()
                     localProfileStore?.clear()
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.resetData()
                     _sessionState.value = SessionState.SignedOut()
                 } else {
                     val errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Failed to delete account on server. Please try again."

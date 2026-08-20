@@ -9,12 +9,14 @@ import com.amplifyframework.core.configuration.AmplifyOutputs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class MeritRankerApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
         instance = this
+        com.example.meritrankerstudent.observability.AppObservability.init(this)
         initAmplify()
     }
 

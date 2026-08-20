@@ -410,6 +410,9 @@ class AskDoubtViewModel(
     fun startVoiceMode() {
         voiceBaseText = _uiState.value.inputText.trim()
         voiceAccumulatedText = ""
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.VoiceStarted(_uiState.value.voiceLanguageMode.name.lowercase())
+        )
         _uiState.update {
             it.copy(
                 isVoiceModeActive = true,
@@ -425,6 +428,9 @@ class AskDoubtViewModel(
     }
 
     fun stopVoiceMode() {
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.VoiceCompleted(_uiState.value.voiceLanguageMode.name.lowercase(), "lt_1s")
+        )
         _uiState.update {
             it.copy(
                 isVoiceModeActive = false,
@@ -491,6 +497,10 @@ class AskDoubtViewModel(
     }
 
     fun onVoiceError(errorMessage: String) {
+        val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(Exception(errorMessage))
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.VoiceFailed(_uiState.value.voiceLanguageMode.name.lowercase(), category)
+        )
         _uiState.update {
             it.copy(
                 isVoiceModeActive = false,
@@ -514,6 +524,9 @@ class AskDoubtViewModel(
     }
 
     fun cancelVoice() {
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.VoiceCancelled(_uiState.value.voiceLanguageMode.name.lowercase())
+        )
         val restored = if (voiceBaseText.isNotBlank()) voiceBaseText else _uiState.value.inputText
         _uiState.update {
             it.copy(
@@ -612,6 +625,14 @@ class AskDoubtViewModel(
         voiceBaseText = ""
         voiceAccumulatedText = ""
 
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.DoubtSubmitted(
+                examProfileId = state.examProfileId,
+                hasAttachment = (attachmentUri != null || attachmentBase64 != null),
+                isVoice = state.isVoiceModeActive
+            )
+        )
+
         // Snapshot draft state and clear composer immediately upon send accepted
         _uiState.update {
             it.copy(
@@ -631,6 +652,9 @@ class AskDoubtViewModel(
                 sendError = null
             )
         }
+
+        val startTime = System.currentTimeMillis()
+        var firstResponseLogged = false
 
         activeStreamJob = viewModelScope.launch {
             val tokenResult = authRepository.getAccessToken()
@@ -653,8 +677,28 @@ class AskDoubtViewModel(
             try {
                 if (_uiState.value.activeConversationId == targetConvId) {
                     repository.sendDoubtQueryStream(request, authToken) { chunk ->
+                        if (!firstResponseLogged) {
+                            firstResponseLogged = true
+                            val latencyMs = System.currentTimeMillis() - startTime
+                            com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                                com.example.meritrankerstudent.observability.TelemetryEvent.DoubtFirstResponseReceived(
+                                    examProfileId = state.examProfileId,
+                                    latencyBucket = com.example.meritrankerstudent.observability.Buckets.latencyBucket(latencyMs)
+                                )
+                            )
+                        }
                         _uiState.update { it.copy(isAiThinking = false, isStreaming = true) }
                     }
+
+                    val totalDuration = System.currentTimeMillis() - startTime
+                    val isFollowUp = state.messages.isNotEmpty()
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.DoubtCompleted(
+                            examProfileId = state.examProfileId,
+                            durationBucket = com.example.meritrankerstudent.observability.Buckets.latencyBucket(totalDuration),
+                            isFollowUp = isFollowUp
+                        )
+                    )
 
                     _uiState.update {
                         it.copy(
@@ -667,6 +711,21 @@ class AskDoubtViewModel(
                     }
                 }
             } catch (e: Exception) {
+                val totalDuration = System.currentTimeMillis() - startTime
+                val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(e)
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.DoubtFailed(
+                        examProfileId = state.examProfileId,
+                        errorCategory = category,
+                        durationBucket = com.example.meritrankerstudent.observability.Buckets.latencyBucket(totalDuration)
+                    )
+                )
+                com.example.meritrankerstudent.observability.AppObservability.crashReporter.recordBackendFailure(
+                    operation = com.example.meritrankerstudent.observability.OperationName.SMART_TUTOR_STREAM.key,
+                    category = category,
+                    throwable = e
+                )
+
                 _uiState.update {
                     it.copy(
                         isSending = false,
@@ -731,6 +790,9 @@ class AskDoubtViewModel(
                 authToken = token
             )
             if (result.isSuccess) {
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.DoubtReportSubmitted(category)
+                )
                 _uiState.update {
                     it.copy(
                         isReporting = false,

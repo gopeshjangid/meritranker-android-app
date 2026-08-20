@@ -37,6 +37,17 @@ fun MainScreen(
     askDoubtViewModel: AskDoubtViewModel = viewModel()
 ) {
     val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
+
+    androidx.compose.runtime.LaunchedEffect(currentTab) {
+        val canonical = when (currentTab) {
+            com.example.meritrankerstudent.ui.main.MainTab.DOUBT -> com.example.meritrankerstudent.observability.CanonicalScreen.SMART_TUTOR
+            com.example.meritrankerstudent.ui.main.MainTab.PRACTICE -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_HOME
+            com.example.meritrankerstudent.ui.main.MainTab.PROGRESS -> com.example.meritrankerstudent.observability.CanonicalScreen.PROGRESS
+            com.example.meritrankerstudent.ui.main.MainTab.PROFILE -> com.example.meritrankerstudent.observability.CanonicalScreen.PROFILE
+        }
+        com.example.meritrankerstudent.observability.AppObservability.analytics.setScreen(canonical)
+        com.example.meritrankerstudent.observability.AppObservability.crashReporter.setScreen(canonical)
+    }
     val isImeVisible = WindowInsets.isImeVisible
 
     Scaffold(

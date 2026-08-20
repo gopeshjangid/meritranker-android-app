@@ -270,6 +270,15 @@ class ProfileViewModel(
                     dateOfBirth = state.draftDateOfBirth,
                     language = state.draftLanguage
                 )
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.ProfileUpdated(
+                        examProfileId = updatedProfile.examProfileId,
+                        language = updatedProfile.language
+                    )
+                )
+                com.example.meritrankerstudent.observability.AppObservability.analytics.setUserProperty("exam_profile_id", updatedProfile.examProfileId)
+                com.example.meritrankerstudent.observability.AppObservability.analytics.setUserProperty("study_language", updatedProfile.language)
+
                 _uiState.value = ProfileUiState.Success(
                     profile = updatedProfile,
                     availableExamProfiles = state.availableExamProfiles,
@@ -287,6 +296,12 @@ class ProfileViewModel(
                 )
             } catch (e: Exception) {
                 Log.e("ProfileViewModel", "Failed to update profile", e)
+                val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(e)
+                com.example.meritrankerstudent.observability.AppObservability.crashReporter.recordBackendFailure(
+                    operation = com.example.meritrankerstudent.observability.OperationName.PROFILE_UPDATE.key,
+                    category = category,
+                    throwable = e
+                )
                 _uiState.value = state.copy(
                     isSaving = false,
                     generalError = "Failed to save: ${e.localizedMessage ?: "Unknown network error"}"

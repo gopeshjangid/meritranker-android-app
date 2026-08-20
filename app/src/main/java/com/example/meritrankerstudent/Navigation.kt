@@ -45,6 +45,10 @@ fun MainNavigation(
             SplashScreen(statusText = "Loading student profile...")
         }
         is SessionState.SignedOut -> {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                com.example.meritrankerstudent.observability.AppObservability.analytics.setScreen(com.example.meritrankerstudent.observability.CanonicalScreen.LOGIN)
+                com.example.meritrankerstudent.observability.AppObservability.crashReporter.setScreen(com.example.meritrankerstudent.observability.CanonicalScreen.LOGIN)
+            }
             LoginScreen(
                 onSignInClick = { activity -> authViewModel.signInWithGoogle(activity) },
                 error = state.error,
@@ -52,6 +56,10 @@ fun MainNavigation(
             )
         }
         is SessionState.IncompleteProfile -> {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                com.example.meritrankerstudent.observability.AppObservability.analytics.setScreen(com.example.meritrankerstudent.observability.CanonicalScreen.ONBOARDING_NAME)
+                com.example.meritrankerstudent.observability.AppObservability.crashReporter.setScreen(com.example.meritrankerstudent.observability.CanonicalScreen.ONBOARDING_NAME)
+            }
             val onboardingViewModel: OnboardingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
             val uiState by onboardingViewModel.uiState.collectAsState()
 
@@ -89,6 +97,26 @@ fun MainNavigation(
         }
         is SessionState.Ready -> {
             val backStack = rememberNavBackStack(Main)
+
+            androidx.compose.runtime.LaunchedEffect(backStack.lastOrNull()) {
+                val key = backStack.lastOrNull() ?: return@LaunchedEffect
+                val canonical = when (key) {
+                    is Main -> null // Handled by MainScreen tab
+                    is ProfileSettings -> com.example.meritrankerstudent.observability.CanonicalScreen.PROFILE
+                    is ConversationHistory -> com.example.meritrankerstudent.observability.CanonicalScreen.SMART_TUTOR
+                    is GuidedPracticeDetail -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_HOME
+                    is QuizList, is MockList, is PyqList, is WrongQuestionsList -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_LIST
+                    is QuestionPlayer -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_PLAYER
+                    is ResultFeedback -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_RESULT
+                    is PracticeReview -> com.example.meritrankerstudent.observability.CanonicalScreen.PRACTICE_REVIEW
+                    is SubjectProgress -> com.example.meritrankerstudent.observability.CanonicalScreen.SUBJECT_PROGRESS
+                    else -> null
+                }
+                canonical?.let {
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.setScreen(it)
+                    com.example.meritrankerstudent.observability.AppObservability.crashReporter.setScreen(it)
+                }
+            }
 
             NavDisplay(
                 backStack = backStack,

@@ -71,6 +71,25 @@ class QuestionPlayerViewModel(
                 val targetIndex = (startPayload.attempt.currentQuestionPosition - 1)
                     .coerceIn(0, (startPayload.questions.size - 1).coerceAtLeast(0))
 
+                val isResumed = startPayload.attempt.currentQuestionPosition > 1 || restoredAnswers.isNotEmpty()
+                val examId = startPayload.summary.exams.firstOrNull()
+                if (isResumed) {
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.PracticeResumed(
+                            examProfileId = examId,
+                            practiceType = mode
+                        )
+                    )
+                } else {
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.PracticeStarted(
+                            examProfileId = examId,
+                            practiceType = mode,
+                            questionCountBucket = com.example.meritrankerstudent.observability.Buckets.questionCountBucket(startPayload.questions.size)
+                        )
+                    )
+                }
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -201,11 +220,30 @@ class QuestionPlayerViewModel(
         val activityId = state.summary?.activityId ?: state.attempt.activityId
         if (state.isSubmitting || state.isSubmitted) return
 
+        val answeredCount = state.selectedOptions.size
+        val examId = state.summary?.exams?.firstOrNull()
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.PracticeSubmitted(
+                examProfileId = examId,
+                practiceType = mode,
+                answeredCountBucket = com.example.meritrankerstudent.observability.Buckets.questionCountBucket(answeredCount)
+            )
+        )
+
         _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
 
         viewModelScope.launch {
             try {
                 val result = repository.submitAttempt(attemptId, activityId)
+                val duration = com.example.meritrankerstudent.observability.Buckets.latencyBucket(state.elapsedSeconds * 1000L)
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.PracticeCompleted(
+                        examProfileId = examId,
+                        practiceType = mode,
+                        durationBucket = duration
+                    )
+                )
+
                 _uiState.update {
                     it.copy(
                         isSubmitting = false,
@@ -215,6 +253,12 @@ class QuestionPlayerViewModel(
                 }
                 onSuccess(result)
             } catch (e: Exception) {
+                val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(e)
+                com.example.meritrankerstudent.observability.AppObservability.crashReporter.recordBackendFailure(
+                    operation = com.example.meritrankerstudent.observability.OperationName.SUBMIT_PRACTICE_ATTEMPT.key,
+                    category = category,
+                    throwable = e
+                )
                 _uiState.update {
                     it.copy(
                         isSubmitting = false,
@@ -228,5 +272,17 @@ class QuestionPlayerViewModel(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        val state = _uiState.value
+        if (!state.isSubmitted && state.questions.isNotEmpty()) {
+            val percentage = (state.currentIndex * 100) / state.questions.size
+            val examId = state.summary?.exams?.firstOrNull()
+            com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                com.example.meritrankerstudent.observability.TelemetryEvent.PracticeAbandoned(
+                    examProfileId = examId,
+                    practiceType = mode,
+                    progressBucket = com.example.meritrankerstudent.observability.Buckets.progressBucket(percentage)
+                )
+            )
+        }
     }
 }

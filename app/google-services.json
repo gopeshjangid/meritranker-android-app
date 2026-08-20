@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "828109780267",
+    "project_id": "merit-ranker",
+    "storage_bucket": "merit-ranker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828109780267:android:f29be89303c0d7f2a2c16e",
+        "android_client_info": {
+          "package_name": "com.bytechminds.meritranker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "828109780267-m1ntcbnseqev6knvfsdae4l8m17jjp2k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWC3FGV14LEnrALoUftxhaWi4wAEcMzlw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "828109780267-m1ntcbnseqev6knvfsdae4l8m17jjp2k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

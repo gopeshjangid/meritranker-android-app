@@ -220,6 +220,12 @@ class ProgressViewModel(
 
             result.fold(
                 onSuccess = { response ->
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.ProgressViewed(
+                            examProfileId = examProfileId,
+                            view = view.name
+                        )
+                    )
                     val hasEvidence = response.overall.attempted > 0 || response.items.isNotEmpty()
                     if (!hasEvidence && !response.isUpdatingLatestPerformance) {
                         _uiState.value = ProgressUiState.Empty(
@@ -245,6 +251,19 @@ class ProgressViewModel(
                     }
                 },
                 onFailure = { error ->
+                    val category = com.example.meritrankerstudent.observability.BackendErrorClassifier.classify(error)
+                    com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                        com.example.meritrankerstudent.observability.TelemetryEvent.ProgressRefreshFailed(
+                            examProfileId = examProfileId,
+                            errorCategory = category
+                        )
+                    )
+                    com.example.meritrankerstudent.observability.AppObservability.crashReporter.recordBackendFailure(
+                        operation = com.example.meritrankerstudent.observability.OperationName.GET_STUDENT_PERFORMANCE.key,
+                        category = category,
+                        throwable = error
+                    )
+
                     val latest = _uiState.value
                     if (latest is ProgressUiState.Content) {
                         _uiState.value = latest.copy(isRefreshing = false)

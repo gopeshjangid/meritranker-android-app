@@ -2,6 +2,8 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.google.services)
+  alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -14,6 +16,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://10.0.2.2:3000\"")
+        buildConfigField("boolean", "ENABLE_DEBUG_TELEMETRY", project.findProperty("enableDebugTelemetry")?.toString() ?: "false")
     }
 
     testOptions {
@@ -86,6 +89,12 @@ dependencies {
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
   androidTestImplementation(composeBom)
+
+  // Firebase BoM, Analytics, Crashlytics
+  val firebaseBom = platform(libs.firebase.bom)
+  implementation(firebaseBom)
+  implementation(libs.firebase.analytics)
+  implementation(libs.firebase.crashlytics)
 
   // Core Android dependencies
   implementation(libs.androidx.core.ktx)
