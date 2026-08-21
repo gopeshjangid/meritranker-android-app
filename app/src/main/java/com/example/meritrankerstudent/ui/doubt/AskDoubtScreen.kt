@@ -36,18 +36,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import com.example.meritrankerstudent.BuildConfig
 import com.example.meritrankerstudent.ui.components.richtext.EducationalContentRenderer
+import com.example.meritrankerstudent.ui.components.richtext.ResponseShareRenderer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,7 +108,13 @@ fun AskDoubtScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val isImeVisible = WindowInsets.isImeVisible
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var isInputFocused by remember { mutableStateOf(false) }
+    var autoFollowLatest by remember { mutableStateOf(true) }
+    var isComposerManuallyExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        viewModel.loadCuratedSuggestions(context)
+    }
 
     var showLanguageMenu by remember { mutableStateOf(false) }
     var showExamMenu by remember { mutableStateOf(false) }
@@ -300,11 +315,42 @@ fun AskDoubtScreen(
         }
     }
 
+    // Auto-scroll when a new message is added
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
+            autoFollowLatest = true
+            isComposerManuallyExpanded = false
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
+
+    // Coalesced / throttled auto-scroll when auto-follow is active during streaming
+    val lastMessageLength = uiState.messages.lastOrNull()?.text?.length ?: 0
+    val isLatestThinking = uiState.messages.lastOrNull()?.isThinking == true
+    val isPracticeGenerating = uiState.messages.lastOrNull()?.isPracticeGenerating == true
+    
+    LaunchedEffect(lastMessageLength / 120, isLatestThinking, isPracticeGenerating) {
+        if (autoFollowLatest && uiState.messages.isNotEmpty() && listState.canScrollForward) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
+        }
+    }
+
+    // User drag detection: dragging upward away from bottom disables auto-follow
+    val isUserDragging by listState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(isUserDragging) {
+        if (isUserDragging && listState.canScrollForward) {
+            autoFollowLatest = false
+        }
+    }
+
+    // Immersive Composer Collapse State Calculation (Section 100)
+    val isComposerCollapsed = uiState.messages.isNotEmpty() &&
+            !isInputFocused &&
+            !isComposerManuallyExpanded &&
+            uiState.inputText.isBlank() &&
+            uiState.selectedAttachmentUri == null &&
+            !uiState.isVoiceModeActive &&
+            listState.canScrollForward
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -432,7 +478,7 @@ fun AskDoubtScreen(
                     // New Chat Action Button
                     IconButton(onClick = {
                         speechManager.cancel()
-                        viewModel.startNewChat()
+                        viewModel.startNewChat(context)
                     }) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -459,8 +505,9 @@ fun AskDoubtScreen(
                     EmptyChatWelcomeView(
                         selectedLanguage = uiState.selectedLanguage,
                         selectedExam = uiState.selectedExam,
+                        curatedSuggestions = uiState.curatedSuggestions,
                         onPromptClick = { promptText ->
-                            viewModel.onInputTextChange(promptText)
+                            viewModel.submitPromptDirectly(promptText)
                         },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -474,17 +521,26 @@ fun AskDoubtScreen(
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
                         items(uiState.messages) { message ->
+                            val isLatestAssistant = message == uiState.messages.lastOrNull { !it.sender.equals("USER", ignoreCase = true) }
                             DoubtMessageBubble(
                                 message = message,
+                                isLatestAssistantMessage = isLatestAssistant,
                                 onActionClick = onActionClick,
                                 onCopyClick = { textToCopy ->
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Doubt Answer", textToCopy)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Copied solution to clipboard", Toast.LENGTH_SHORT).show()
+                                    coroutineScope.launch {
+                                        ResponseShareRenderer.copyResponseAsImage(context, textToCopy)
+                                    }
                                 },
-                                onFollowUpClick = { followUpText ->
-                                    viewModel.onSuggestionSelected(followUpText)
+                                onShareClick = { textToShare ->
+                                    coroutineScope.launch {
+                                        ResponseShareRenderer.shareResponseAsImage(context, textToShare, subject = uiState.selectedExam)
+                                    }
+                                },
+                                onSimilarClick = {
+                                    onActionClick(QuizList)
+                                },
+                                onSimplifyClick = {
+                                    viewModel.submitPromptDirectly("Explain this concept in simpler words with an example")
                                 },
                                 onReportClick = { messageId ->
                                     viewModel.openReportDialog(messageId)
@@ -493,30 +549,6 @@ fun AskDoubtScreen(
                                     viewModel.stopGenerating()
                                 }
                             )
-                        }
-
-                        if (uiState.isAiThinking) {
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    val isHindi = uiState.selectedLanguage.startsWith("hi", ignoreCase = true)
-                                    Text(
-                                        text = if (isHindi) "Smart Tutor समाधान तैयार कर रहा है..." else "Smart Tutor is solving...",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
                         }
 
                         if (uiState.sendError != null) {
@@ -553,6 +585,47 @@ fun AskDoubtScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    // Floating "↓ Latest" Floating Affordance (Section 92)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !autoFollowLatest && listState.canScrollForward,
+                        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+                        exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = 12.dp)
+                    ) {
+                        Surface(
+                            onClick = {
+                                autoFollowLatest = true
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem((uiState.messages.size - 1).coerceAtLeast(0))
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            shadowElevation = 4.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Scroll to latest response",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Latest",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
@@ -662,7 +735,7 @@ fun AskDoubtScreen(
                     }
                 }
 
-            // Sticky Bottom Interaction Composer Bar (Modern AI Platform Parity)
+            // Sticky Bottom Interaction Composer Bar (Immersive Long-Answer Reading UX)
             Surface(
                 color = MaterialTheme.colorScheme.background,
                 modifier = Modifier
@@ -672,70 +745,131 @@ fun AskDoubtScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    // Unified Floating AI Composer Card
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(22.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
+                    if (isComposerCollapsed) {
+                        // Sleek 38dp Collapsed Affordance (Section 100)
+                        Surface(
+                            onClick = {
+                                isComposerManuallyExpanded = true
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(50)
+                                    focusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
+                            shadowElevation = 2.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            // Selected Image Attachment Chip (Clearable)
-                            if (uiState.selectedAttachmentUri != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .padding(bottom = 8.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (uiState.attachmentSource == AttachmentSource.CAMERA) "Camera Photo" else "Attached Image",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    IconButton(
-                                        onClick = { viewModel.removeAttachment() },
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Remove photo",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Full-Width Editable Text Area
-                            MultilineExpandingTextField(
-                                value = uiState.inputText,
-                                onValueChange = { viewModel.onInputTextChange(it) },
-                                placeholder = if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "डाउट पूछें या सवाल लिखें..." else "Ask anything...",
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                enabled = !uiState.isAiThinking
-                            )
+                                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "फॉलो-अप प्रश्न पूछें..." else "Ask a follow-up doubt...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        isComposerManuallyExpanded = true
+                                        toggleVoiceListening()
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Voice input",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Unified Floating AI Composer Card
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                // Selected Image Attachment Chip (Clearable)
+                                if (uiState.selectedAttachmentUri != null) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .padding(bottom = 6.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (uiState.attachmentSource == AttachmentSource.CAMERA) "Camera Photo" else "Attached Image",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        IconButton(
+                                            onClick = { viewModel.removeAttachment() },
+                                            modifier = Modifier.size(18.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Remove photo",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                                // Full-Width Editable Text Area
+                                MultilineExpandingTextField(
+                                    value = uiState.inputText,
+                                    onValueChange = { viewModel.onInputTextChange(it) },
+                                    placeholder = if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "डाउट पूछें या सवाल लिखें..." else "Ask anything...",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp),
+                                    enabled = !uiState.isAiThinking,
+                                    focusRequester = focusRequester,
+                                    onFocusChanged = { isInputFocused = it }
+                                )
+
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             // Bottom Action Items Row
                             if (uiState.isVoiceModeActive) {
@@ -779,14 +913,14 @@ fun AskDoubtScreen(
                                             initialValue = 0.3f,
                                             targetValue = 1f,
                                             animationSpec = infiniteRepeatable(
-                                                animation = tween(700, easing = LinearEasing),
+                                                animation = tween(600, easing = LinearEasing),
                                                 repeatMode = RepeatMode.Reverse
                                             ),
                                             label = "pulseAlpha"
                                         )
                                         Box(
                                             modifier = Modifier
-                                                .size(7.dp)
+                                                .size(8.dp)
                                                 .clip(CircleShape)
                                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha))
                                         )
@@ -866,7 +1000,7 @@ fun AskDoubtScreen(
                                         onClick = { viewModel.setAttachmentSheetOpen(true) },
                                         shape = CircleShape,
                                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier.size(34.dp)
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
@@ -876,19 +1010,19 @@ fun AskDoubtScreen(
                                                 imageVector = Icons.Default.Add,
                                                 contentDescription = "Add attachment",
                                                 tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
 
                                     // 2. Idle Mic Button
                                     Surface(
                                         onClick = { toggleVoiceListening() },
                                         shape = CircleShape,
                                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier.size(34.dp)
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
@@ -898,7 +1032,7 @@ fun AskDoubtScreen(
                                                 painter = painterResource(id = R.drawable.ic_mic),
                                                 contentDescription = "Start voice input",
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(18.dp)
+                                                modifier = Modifier.size(16.dp)
                                             )
                                         }
                                     }
@@ -924,7 +1058,7 @@ fun AskDoubtScreen(
                                             MaterialTheme.colorScheme.onPrimary
                                         else
                                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-                                        modifier = Modifier.size(38.dp)
+                                        modifier = Modifier.size(36.dp)
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
@@ -933,7 +1067,7 @@ fun AskDoubtScreen(
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.Send,
                                                 contentDescription = "Send message",
-                                                modifier = Modifier.size(18.dp)
+                                                modifier = Modifier.size(16.dp)
                                             )
                                         }
                                     }
@@ -941,17 +1075,6 @@ fun AskDoubtScreen(
                             }
                         }
                     }
-
-                    // Refined AI Disclaimer
-                    Text(
-                        text = "MeritRanker AI can make mistakes. Verify important info.",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp, bottom = 4.dp)
-                    )
                 }
             }
         }
@@ -1101,6 +1224,7 @@ fun AskDoubtScreen(
         }
     }
 }
+}
 
 @Composable
 fun SelectedImagePreviewCard(
@@ -1229,8 +1353,20 @@ fun MultilineExpandingTextField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    focusRequester: FocusRequester? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null
 ) {
+    var fieldModifier = modifier.fillMaxWidth()
+    if (focusRequester != null) {
+        fieldModifier = fieldModifier.focusRequester(focusRequester)
+    }
+    if (onFocusChanged != null) {
+        fieldModifier = fieldModifier.onFocusChanged { state: androidx.compose.ui.focus.FocusState ->
+            onFocusChanged(state.isFocused)
+        }
+    }
+
     androidx.compose.foundation.text.BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -1241,7 +1377,7 @@ fun MultilineExpandingTextField(
             lineHeight = 22.sp
         ),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = modifier.fillMaxWidth(),
+        modifier = fieldModifier,
         minLines = 1,
         maxLines = 5,
         decorationBox = { innerTextField ->
@@ -1312,11 +1448,22 @@ data class SubjectQueryCard(
 fun EmptyChatWelcomeView(
     selectedLanguage: String = "en",
     selectedExam: String = "",
+    curatedSuggestions: List<TutorSuggestion> = emptyList(),
     onPromptClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val isHindi = selectedLanguage.startsWith("hi", ignoreCase = true)
     val examLabel = selectedExam.ifBlank { if (isHindi) "प्रतियोगी परीक्षा" else "Exam" }
+
+    // Fallback if curatedSuggestions is empty yet
+    val displaySuggestions = remember(curatedSuggestions, context) {
+        if (curatedSuggestions.isNotEmpty()) {
+            curatedSuggestions
+        } else {
+            TutorSuggestionSelector.selectSuggestions(context, 3)
+        }
+    }
 
     // Show welcome banner for 2 minutes only, with close button and smooth fade/collapse
     var showWelcomeBanner by remember { mutableStateOf(true) }
@@ -1338,45 +1485,6 @@ fun EmptyChatWelcomeView(
                 "🎯 10-Question Test" to "Create a 10-question practice test for $examLabel",
                 "📝 Full Mock Test" to "Create a full mock test for $examLabel",
                 "💡 Step-by-Step Solver" to "Solve this question step-by-step with clear explanation: "
-            )
-        }
-    }
-
-    // Direct Exam Problem Statements (Curated top 2 for clean, uncluttered layout)
-    val sampleQueries = remember(isHindi) {
-        if (isHindi) {
-            listOf(
-                SubjectQueryCard(
-                    subject = "मात्रात्मक योग्यता • Quant",
-                    title = "क्रय मूल्य व लाभ-हानि का प्रश्न",
-                    prompt = "एक दुकानदार वस्तु का मूल्य क्रय मूल्य से 40% अधिक अंकित करता है और 20% की छूट देता है। यदि उसे ₹480 का लाभ होता है, तो क्रय मूल्य निकालें।",
-                    icon = Icons.Default.Edit,
-                    accentColor = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
-                ),
-                SubjectQueryCard(
-                    subject = "तार्किक क्षमता • Reasoning",
-                    title = "Syllogism (न्याय वाक्य) प्रश्न",
-                    prompt = "कथन: (1) सभी बिल्लियां कुत्ते हैं। (2) कुछ कुत्ते पक्षी हैं। निष्कर्ष: I. कुछ बिल्लियां पक्षी हैं। II. कोई बिल्ली पक्षी नहीं है। वेन आरेख से हल करें।",
-                    icon = Icons.Default.Info,
-                    accentColor = com.example.meritrankerstudent.theme.MeritRankerColors.BrandPurple
-                )
-            )
-        } else {
-            listOf(
-                SubjectQueryCard(
-                    subject = "Quantitative Aptitude",
-                    title = "Profit & Loss Calculation",
-                    prompt = "A shopkeeper marks goods 40% above cost price and allows a 20% discount. If the profit is ₹480, find the cost price.",
-                    icon = Icons.Default.Edit,
-                    accentColor = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
-                ),
-                SubjectQueryCard(
-                    subject = "Logical Reasoning",
-                    title = "Syllogism Deductive Logic",
-                    prompt = "Statements: (1) All cats are dogs. (2) Some dogs are birds. Conclusions: I. Some cats are birds. II. No cat is a bird.",
-                    icon = Icons.Default.Info,
-                    accentColor = com.example.meritrankerstudent.theme.MeritRankerColors.BrandPurple
-                )
             )
         }
     }
@@ -1484,107 +1592,109 @@ fun EmptyChatWelcomeView(
             }
         }
 
-        // Section Title: Sample Direct Questions
+        // Section Title: Curated Suggestions
         Text(
-            text = if (isHindi) "उदाहरण प्रश्न" else "SAMPLE QUESTIONS",
+            text = if (isHindi) "सुझाए गए प्रश्न" else "SUGGESTED QUESTIONS",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 0.8.sp
         )
 
-        // Clean Vertical Subject Cards (2 concise items)
+        // Clean Vertical Suggestion Cards (3 diverse items)
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            sampleQueries.forEach { item ->
-                VerticalSubjectQueryCard(
-                    item = item,
-                    onClick = { onPromptClick(item.prompt) }
-                )
+            displaySuggestions.forEach { suggestion ->
+                val subjectLabel = if (isHindi) suggestion.subjectHi else suggestion.subject
+                val titleLabel = if (isHindi) suggestion.titleHi else suggestion.title
+                val promptText = if (isHindi) suggestion.textHi else suggestion.text
+
+                val (accentColor, iconVector) = when {
+                    suggestion.subject.contains("Quant", ignoreCase = true) ->
+                        Pair(com.example.meritrankerstudent.theme.MeritRankerColors.AiCyan, Icons.Default.Edit)
+                    suggestion.subject.contains("Reasoning", ignoreCase = true) ->
+                        Pair(com.example.meritrankerstudent.theme.MeritRankerColors.BrandPurple, Icons.Default.Info)
+                    suggestion.subject.contains("English", ignoreCase = true) ->
+                        Pair(com.example.meritrankerstudent.theme.MeritRankerColors.Success, Icons.Default.MenuBook)
+                    else ->
+                        Pair(com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue, Icons.Default.Science)
+                }
+
+                Surface(
+                    onClick = { onPromptClick(promptText) },
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Subject Icon Pill
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(accentColor.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = subjectLabel,
+                                tint = accentColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Query Details
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = subjectLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = titleLabel,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = promptText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Tap Indicator
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Ask this question",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun VerticalSubjectQueryCard(
-    item: SubjectQueryCard,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Subject Icon Pill
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(item.accentColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = item.subject,
-                    tint = item.accentColor,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Query Details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = item.subject,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = item.accentColor
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = item.prompt,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Tap Arrow
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = "Ask this question",
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                modifier = Modifier.size(18.dp)
-            )
         }
     }
 }
@@ -1807,9 +1917,12 @@ fun ConversationHistoryDrawerContent(
 @Composable
 fun DoubtMessageBubble(
     message: DoubtMessage,
+    isLatestAssistantMessage: Boolean = false,
     onActionClick: (NavKey) -> Unit,
     onCopyClick: (String) -> Unit,
-    onFollowUpClick: (String) -> Unit,
+    onShareClick: (String) -> Unit,
+    onSimilarClick: () -> Unit,
+    onSimplifyClick: () -> Unit,
     onReportClick: (String) -> Unit = {},
     onCancelGeneration: () -> Unit = {}
 ) {
@@ -1921,6 +2034,53 @@ fun DoubtMessageBubble(
                             },
                             onCancel = onCancelGeneration
                         )
+                    } else if (message.errorMessage != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = message.errorMessage,
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onErrorContainer),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    } else if (message.isThinking || message.text.isBlank()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = message.thinkingStatus ?: "Thinking…",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
                     } else {
                         EducationalContentRenderer(
                             content = message.text,
@@ -1940,7 +2100,7 @@ fun DoubtMessageBubble(
                 if (!isUser && message.practiceTestId != null && message.text.isNotBlank()) {
                     val testId = message.practiceTestId
                     val mode = if (message.actionRoute.equals("MOCK", ignoreCase = true)) "MOCK" else "QUIZ"
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     GeneratingPracticeCard(
                         testId = testId,
                         title = message.practiceTitle ?: "Practice Quiz",
@@ -1954,175 +2114,132 @@ fun DoubtMessageBubble(
                     )
                 }
 
-                // Clean Unified AI Response Utilities (Copy, Share, Try Similar)
+                // Clean Unified AI Response Utilities (Copy, Share, Similar, Simplify, Report) - Exactly 1 Row
                 if (!isUser && message.text.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    // Compact Single-Row Action Toolbar (5 items, zero wrapping)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Compact Action Buttons Row (Single authority)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            // Copy
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { onCopyClick(message.text) },
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Copy solution",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Copy",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
+                        // 1. Copy
+                        ResponseToolbarAction(
+                            icon = Icons.Default.Edit,
+                            label = "Copy",
+                            talkBackDescription = "Copy answer as image",
+                            onClick = { onCopyClick(message.text) },
+                            modifier = Modifier.weight(1f)
+                        )
 
-                            // Share
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable {
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            putExtra(Intent.EXTRA_TEXT, message.text)
-                                            type = "text/plain"
-                                        }
-                                        context.startActivity(Intent.createChooser(sendIntent, "Share solution"))
-                                    },
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "Share solution",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Share",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
+                        // 2. Share
+                        ResponseToolbarAction(
+                            icon = Icons.Default.Share,
+                            label = "Share",
+                            talkBackDescription = "Share answer as image",
+                            onClick = { onShareClick(message.text) },
+                            modifier = Modifier.weight(1f)
+                        )
 
-                            // Try Similar (Only when contextual/relevant)
-                            val isNumericalOrProblem = message.text.contains("Step", ignoreCase = true) ||
-                                    message.text.contains("=", ignoreCase = true) ||
-                                    message.actionRoute != null
+                        // 3. Similar
+                        ResponseToolbarAction(
+                            icon = Icons.Default.Star,
+                            label = "Similar",
+                            talkBackDescription = "Create similar question",
+                            isAccent = true,
+                            onClick = onSimilarClick,
+                            modifier = Modifier.weight(1f)
+                        )
 
-                            if (isNumericalOrProblem) {
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .clickable { onActionClick(QuizList) },
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Try Similar",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "Try Similar",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
+                        // 4. Simplify
+                        ResponseToolbarAction(
+                            icon = Icons.Default.Refresh,
+                            label = "Simplify",
+                            talkBackDescription = "Simplify explanation",
+                            onClick = onSimplifyClick,
+                            modifier = Modifier.weight(1f)
+                        )
 
-                            // Report
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { onReportClick(message.id) },
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Warning,
-                                        contentDescription = "Report answer",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Report",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                        // 5. Report
+                        ResponseToolbarAction(
+                            icon = Icons.Default.Warning,
+                            label = "Report",
+                            talkBackDescription = "Report response",
+                            onClick = { onReportClick(message.id) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
-                    // Contextual Follow-up Chips (Derived from solution context, shown below)
-                    val followUps = remember(message.text) {
-                        val list = mutableListOf<Pair<String, String>>()
-                        if (message.text.contains("Step", ignoreCase = true) || message.text.contains("formula", ignoreCase = true)) {
-                            list.add("Show detailed steps" to "Show me the detailed steps to solve this problem")
-                            list.add("Explain in Hindi" to "क्या आप इसे आसान हिंदी में समझा सकते हैं?")
-                        } else {
-                            list.add("Explain simpler" to "Explain this concept in simpler words with an example")
-                        }
-                        list
-                    }
-
-                    if (followUps.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            items(followUps) { (label, prompt) ->
-                                ClarificationChip(
-                                    text = label,
-                                    onClick = { onFollowUpClick(prompt) }
-                                )
-                            }
-                        }
+                    // Compact Disclaimer beneath toolbar for the response
+                    if (isLatestAssistantMessage) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "AI can make mistakes",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ResponseToolbarAction(
+    icon: ImageVector,
+    label: String,
+    talkBackDescription: String,
+    isAccent: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = if (isAccent) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    }
+    val contentColor = if (isAccent) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+        modifier = modifier
+            .heightIn(min = 36.dp, max = 42.dp)
+            .semantics { contentDescription = talkBackDescription }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(2.5.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                fontWeight = if (isAccent) FontWeight.Bold else FontWeight.Medium,
+                color = if (isAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -2143,35 +2260,44 @@ fun GeneratingPracticeCard(
     val isFailed = status == "FAILED"
     var isStarting by remember { mutableStateOf(false) }
 
-    // Lightweight Compose-native rotating gradient shimmer
-    val infiniteTransition = rememberInfiniteTransition(label = "borderShimmer")
-    val animatedAngle by if (isGenerating) {
-        infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                animation = androidx.compose.animation.core.tween(2800, easing = androidx.compose.animation.core.LinearEasing),
-                repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-            ),
-            label = "angle"
-        )
-    } else {
-        remember { mutableFloatStateOf(0f) }
-    }
+    // Dynamic continuous glowing gradient border animation
+    val infiniteTransition = rememberInfiniteTransition(label = "borderGradientAnimation")
+    val gradientOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1200f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gradientOffset"
+    )
 
     val animatedBorder = if (isGenerating) {
         BorderStroke(
-            1.5.dp,
-            Brush.sweepGradient(
-                listOf(
-                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+            width = 1.75.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    com.example.meritrankerstudent.theme.MeritRankerColors.AiCyanLight,
+                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandPurpleLight,
                     com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange,
-                    com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
-                )
+                    com.example.meritrankerstudent.theme.MeritRankerColors.AiCyanLight
+                ),
+                start = Offset(gradientOffset, gradientOffset),
+                end = Offset(gradientOffset + 500f, gradientOffset + 500f),
+                tileMode = TileMode.Repeated
             )
         )
     } else if (isReady) {
-        BorderStroke(1.dp, com.example.meritrankerstudent.theme.MeritRankerColors.Success.copy(alpha = 0.5f))
+        BorderStroke(
+            width = 1.5.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    com.example.meritrankerstudent.theme.MeritRankerColors.Success,
+                    com.example.meritrankerstudent.theme.MeritRankerColors.AiCyanLight,
+                    com.example.meritrankerstudent.theme.MeritRankerColors.Success
+                )
+            )
+        )
     } else {
         BorderStroke(1.dp, com.example.meritrankerstudent.theme.MeritRankerColors.Error.copy(alpha = 0.4f))
     }
@@ -2209,7 +2335,7 @@ fun GeneratingPracticeCard(
                                 when {
                                     isReady -> com.example.meritrankerstudent.theme.MeritRankerColors.Success.copy(alpha = 0.15f)
                                     isFailed -> com.example.meritrankerstudent.theme.MeritRankerColors.Error.copy(alpha = 0.15f)
-                                    else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue.copy(alpha = 0.15f)
+                                    else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange.copy(alpha = 0.15f)
                                 }
                             ),
                         contentAlignment = Alignment.Center
@@ -2224,7 +2350,7 @@ fun GeneratingPracticeCard(
                             tint = when {
                                 isReady -> com.example.meritrankerstudent.theme.MeritRankerColors.Success
                                 isFailed -> com.example.meritrankerstudent.theme.MeritRankerColors.Error
-                                else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
+                                else -> com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange
                             },
                             modifier = Modifier.size(15.dp)
                         )
@@ -2233,7 +2359,7 @@ fun GeneratingPracticeCard(
                         text = "QUICK PRACTICE",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        color = if (isReady) com.example.meritrankerstudent.theme.MeritRankerColors.Success else com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange,
                         letterSpacing = 0.8.sp
                     )
                 }
@@ -2268,7 +2394,7 @@ fun GeneratingPracticeCard(
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp)),
-                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 } else {
@@ -2277,7 +2403,7 @@ fun GeneratingPracticeCard(
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp)),
-                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue,
+                        color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
@@ -2294,7 +2420,7 @@ fun GeneratingPracticeCard(
                         CircularProgressIndicator(
                             modifier = Modifier.size(13.dp),
                             strokeWidth = 1.5.dp,
-                            color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandBlue
+                            color = com.example.meritrankerstudent.theme.MeritRankerColors.BrandOrange
                         )
                     } else {
                         Icon(

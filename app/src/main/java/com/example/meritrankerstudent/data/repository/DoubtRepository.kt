@@ -132,7 +132,9 @@ class DefaultDoubtRepository(
             id = "ai_${request.turnId}",
             sender = "AI",
             text = "",
-            timestamp = System.currentTimeMillis() + 10
+            timestamp = System.currentTimeMillis() + 10,
+            isThinking = true,
+            thinkingStatus = "Thinking…"
         )
 
         val currentList = _messages.value.filter { msg ->
@@ -158,14 +160,29 @@ class DefaultDoubtRepository(
                 }
 
                 when (event) {
+                    is TutorStreamEvent.Status -> {
+                        val statusLabel = event.label ?: event.stage ?: "Thinking…"
+                        val updatedList = _messages.value.map { msg ->
+                            if (msg.id == "ai_${request.turnId}") {
+                                msg.copy(isThinking = true, thinkingStatus = statusLabel)
+                            } else {
+                                msg
+                            }
+                        }
+                        _messages.value = updatedList
+                    }
                     is TutorStreamEvent.Chunk -> {
                         accumulatedAnswer += event.text
                         onChunk(event.text)
 
-                        // Update live AI message bubble
+                        // Update live AI message bubble and remove thinking state
                         val updatedList = _messages.value.map { msg ->
                             if (msg.id == "ai_${request.turnId}") {
-                                msg.copy(text = accumulatedAnswer)
+                                msg.copy(
+                                    text = accumulatedAnswer,
+                                    isThinking = false,
+                                    thinkingStatus = null
+                                )
                             } else {
                                 msg
                             }
@@ -176,6 +193,8 @@ class DefaultDoubtRepository(
                         val updatedList = _messages.value.map { msg ->
                             if (msg.id == "ai_${request.turnId}") {
                                 msg.copy(
+                                    isThinking = false,
+                                    thinkingStatus = null,
                                     practiceTestId = event.practiceTestId,
                                     isPracticeGenerating = true,
                                     practiceTitle = event.title ?: msg.practiceTitle ?: "Practice Quiz",
@@ -202,6 +221,8 @@ class DefaultDoubtRepository(
                             if (msg.id == "ai_${request.turnId}") {
                                 msg.copy(
                                     text = finalAnswer,
+                                    isThinking = false,
+                                    thinkingStatus = null,
                                     actionRoute = event.actionRoute ?: if (resolvedTestId != null || msg.practiceTestId != null) "QUIZ" else null,
                                     actionText = event.actionText ?: if (resolvedTestId != null || msg.practiceTestId != null) "Start Practice" else null,
                                     practiceTestId = resolvedTestId ?: msg.practiceTestId,
@@ -215,20 +236,31 @@ class DefaultDoubtRepository(
                         _messages.value = updatedList
                         android.util.Log.d("MeritRankerChat", "STREAM_COMPLETED conversationId=${request.conversationId} turnId=${request.turnId}")
                     }
-                    is TutorStreamEvent.Status -> {
-                        // Handled by UI thinking indicator if needed
-                    }
                     is TutorStreamEvent.Error -> {
                         if (accumulatedAnswer.isEmpty()) {
-                            // Remove empty placeholder and propagate error
-                            val filteredList = _messages.value.filterNot { it.id == "ai_${request.turnId}" }
-                            _messages.value = filteredList
+                            // Update placeholder with error status and propagate error
+                            val updatedList = _messages.value.map { msg ->
+                                if (msg.id == "ai_${request.turnId}") {
+                                    msg.copy(
+                                        isThinking = false,
+                                        thinkingStatus = null,
+                                        errorMessage = event.message
+                                    )
+                                } else {
+                                    msg
+                                }
+                            }
+                            _messages.value = updatedList
                             throw java.io.IOException(event.message)
                         } else {
                             // Keep partial streamed content if connection dropped mid-stream
                             val updatedList = _messages.value.map { msg ->
                                 if (msg.id == "ai_${request.turnId}") {
-                                    msg.copy(text = accumulatedAnswer)
+                                    msg.copy(
+                                        text = accumulatedAnswer,
+                                        isThinking = false,
+                                        thinkingStatus = null
+                                    )
                                 } else {
                                     msg
                                 }

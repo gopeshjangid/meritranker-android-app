@@ -223,8 +223,8 @@ object MarkdownDocumentParser {
         if (text.isBlank()) return emptyList()
         val spans = mutableListOf<InlineSpan>()
 
-        // Regex matching inline math $...$, \(...\), or \ce{...}
-        val pattern = Regex("(\\\\(?:ce)\\{[^}]+\\}|\\$[^\\$]+\\$|\\\\\\([^\\\\\\)]+\\\\\\))")
+        // Comprehensive regex matching inline chemistry \ce{...}, block math $$...$$, \[...\], inline math \(...\), and $...$
+        val pattern = Regex("(\\\\(?:ce)\\{[^}]+\\}|\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$[^\\$\\n]+?\\$)")
         var lastIdx = 0
 
         for (match in pattern.findAll(text)) {
@@ -236,15 +236,27 @@ object MarkdownDocumentParser {
             }
 
             val rawSpan = match.value
-            if (rawSpan.startsWith("\\ce{")) {
-                val chemContent = rawSpan.removePrefix("\\ce{").removeSuffix("}")
-                spans.add(InlineSpan.Chemistry(chemContent))
-            } else if (rawSpan.startsWith("\\(")) {
-                val mathContent = rawSpan.removePrefix("\\(").removeSuffix("\\)")
-                spans.add(InlineSpan.Math(mathContent))
-            } else if (rawSpan.startsWith("$")) {
-                val mathContent = rawSpan.removePrefix("$").removeSuffix("$")
-                spans.add(InlineSpan.Math(mathContent))
+            when {
+                rawSpan.startsWith("\\ce{") -> {
+                    val chemContent = rawSpan.removePrefix("\\ce{").removeSuffix("}")
+                    spans.add(InlineSpan.Chemistry(chemContent))
+                }
+                rawSpan.startsWith("\\[") -> {
+                    val mathContent = rawSpan.removePrefix("\\[").removeSuffix("\\]")
+                    spans.add(InlineSpan.Math(mathContent.trim()))
+                }
+                rawSpan.startsWith("$$") -> {
+                    val mathContent = rawSpan.removePrefix("$$").removeSuffix("$$")
+                    spans.add(InlineSpan.Math(mathContent.trim()))
+                }
+                rawSpan.startsWith("\\(") -> {
+                    val mathContent = rawSpan.removePrefix("\\(").removeSuffix("\\)")
+                    spans.add(InlineSpan.Math(mathContent.trim()))
+                }
+                rawSpan.startsWith("$") -> {
+                    val mathContent = rawSpan.removePrefix("$").removeSuffix("$")
+                    spans.add(InlineSpan.Math(mathContent.trim()))
+                }
             }
 
             lastIdx = end
@@ -254,29 +266,75 @@ object MarkdownDocumentParser {
             spans.addAll(parseFormattedTextSpans(text.substring(lastIdx)))
         }
 
-        return spans.ifEmpty { listOf(InlineSpan.Text(text)) }
+        return spans.ifEmpty { listOf(InlineSpan.Text(cleanStrayLatexMacros(text))) }
     }
 
     private fun parseFormattedTextSpans(text: String): List<InlineSpan> {
+        val cleanedText = cleanStrayLatexMacros(text)
         val spans = mutableListOf<InlineSpan>()
         val boldRegex = Regex("\\*\\*(.*?)\\*\\*")
         var lastIdx = 0
 
-        for (match in boldRegex.findAll(text)) {
+        for (match in boldRegex.findAll(cleanedText)) {
             val start = match.range.first
             val end = match.range.last + 1
             if (start > lastIdx) {
-                spans.add(InlineSpan.Text(text.substring(lastIdx, start)))
+                val plainPart = cleanedText.substring(lastIdx, start)
+                if (plainPart.isNotEmpty()) {
+                    spans.add(InlineSpan.Text(plainPart))
+                }
             }
             spans.add(InlineSpan.Text(match.groupValues[1], isBold = true))
             lastIdx = end
         }
 
-        if (lastIdx < text.length) {
-            spans.add(InlineSpan.Text(text.substring(lastIdx)))
+        if (lastIdx < cleanedText.length) {
+            val trailingPart = cleanedText.substring(lastIdx)
+            if (trailingPart.isNotEmpty()) {
+                spans.add(InlineSpan.Text(trailingPart))
+            }
         }
 
         return spans
+    }
+
+    /**
+     * Safety pass to normalize stray TeX macros that might appear in plain text.
+     */
+    private fun cleanStrayLatexMacros(input: String): String {
+        return input
+            .replace("\\implies", "⟹")
+            .replace("\\iff", "⟺")
+            .replace("\\therefore", "∴")
+            .replace("\\because", "∵")
+            .replace("\\Rightarrow", "⟹")
+            .replace("\\Leftarrow", "⟸")
+            .replace("\\Leftrightarrow", "⟺")
+            .replace("\\longrightarrow", "⟶")
+            .replace("\\longleftarrow", "⟵")
+            .replace("\\times", "×")
+            .replace("\\div", "÷")
+            .replace("\\pm", "±")
+            .replace("\\mp", "∓")
+            .replace("\\cdot", "·")
+            .replace("\\approx", "≈")
+            .replace("\\neq", "≠")
+            .replace("\\ne", "≠")
+            .replace("\\leq", "≤")
+            .replace("\\le", "≤")
+            .replace("\\geq", "≥")
+            .replace("\\ge", "≥")
+            .replace("\\infty", "∞")
+            .replace("\\rightarrow", "→")
+            .replace("\\to", "→")
+            .replace("\\leftarrow", "←")
+            .replace("\\degree", "°")
+            .replace("\\%", "%")
+            .replace("\\(", "")
+            .replace("\\)", "")
+            .replace(Regex("\\\\text\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathrm\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathbf\\{([^}]+)\\}")) { it.groupValues[1] }
     }
 }
 
@@ -292,7 +350,7 @@ fun EducationalContentRenderer(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         blocks.forEach { block ->
             when (block) {
@@ -314,9 +372,9 @@ fun EducationalContentRenderer(
 @Composable
 private fun RenderHeaderBlock(header: RichBlock.Header) {
     val textStyle = when (header.level) {
-        1 -> MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        2 -> MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        else -> MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        1 -> MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        2 -> MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        else -> MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
     Text(
         text = header.text,
@@ -327,10 +385,10 @@ private fun RenderHeaderBlock(header: RichBlock.Header) {
 
 @Composable
 private fun RenderParagraphBlock(elements: List<InlineSpan>) {
-    val mathColor = MaterialTheme.colorScheme.primary
-    val mathBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+    val mathColor = MaterialTheme.colorScheme.onSurface
+    val mathBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     val chemColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF34D399) else Color(0xFF059669)
-    val chemBgColor = chemColor.copy(alpha = 0.1f)
+    val chemBgColor = chemColor.copy(alpha = 0.12f)
 
     Text(
         text = buildInlineAnnotatedString(
@@ -349,14 +407,14 @@ private fun RenderParagraphBlock(elements: List<InlineSpan>) {
 
 @Composable
 private fun RenderListGroupBlock(listGroup: RichBlock.ListGroup) {
-    val mathColor = MaterialTheme.colorScheme.primary
-    val mathBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+    val mathColor = MaterialTheme.colorScheme.onSurface
+    val mathBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     val chemColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF34D399) else Color(0xFF059669)
-    val chemBgColor = chemColor.copy(alpha = 0.1f)
+    val chemBgColor = chemColor.copy(alpha = 0.12f)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.padding(start = 6.dp)
+        modifier = Modifier.padding(start = 4.dp)
     ) {
         listGroup.items.forEachIndexed { index, itemSpans ->
             Row(
@@ -367,7 +425,7 @@ private fun RenderListGroupBlock(listGroup: RichBlock.ListGroup) {
                     text = if (listGroup.isOrdered) "${index + 1}." else "•",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     modifier = Modifier.width(20.dp)
                 )
@@ -466,7 +524,7 @@ private fun RenderTableBlock(table: RichBlock.Table) {
             // Headers
             Row(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .padding(vertical = 8.dp)
             ) {
                 table.headers.forEach { header ->
@@ -474,7 +532,7 @@ private fun RenderTableBlock(table: RichBlock.Table) {
                         text = header,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
                             .widthIn(min = 100.dp)
                             .padding(horizontal = 12.dp)
@@ -488,7 +546,7 @@ private fun RenderTableBlock(table: RichBlock.Table) {
             table.rows.forEachIndexed { index, row ->
                 Row(
                     modifier = Modifier
-                        .background(if (index % 2 == 0) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .background(if (index % 2 == 0) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -510,70 +568,33 @@ private fun RenderTableBlock(table: RichBlock.Table) {
 
 @Composable
 private fun RenderMathBlock(math: RichBlock.Math) {
-    val context = LocalContext.current
     val formattedMath = remember(math.formula) { formatMathExpression(math.formula) }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            .padding(vertical = 2.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "📐", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Mathematical Expression",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("Math formula", math.formula)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Formula copied!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Copy formula",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                Text(
-                    text = formattedMath,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        lineHeight = 24.sp
-                    )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = formattedMath,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 22.sp
                 )
-            }
+            )
         }
     }
 }
@@ -581,27 +602,29 @@ private fun RenderMathBlock(math: RichBlock.Math) {
 @Composable
 private fun RenderChemistryBlock(chem: RichBlock.Chemistry) {
     val formattedChem = remember(chem.formula) { formatChemistryFormula(chem.formula) }
+    val chemColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF34D399) else Color(0xFF059669)
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
+            .padding(vertical = 2.dp),
+        color = chemColor.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, chemColor.copy(alpha = 0.25f)),
         shape = RoundedCornerShape(8.dp)
     ) {
         Row(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "🧪", fontSize = 16.sp)
-            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "🧪", fontSize = 14.sp)
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = formattedChem,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -784,8 +807,8 @@ private fun RenderDiagramBlock(diagram: RichBlock.Diagram) {
 
 fun buildInlineAnnotatedString(
     spans: List<InlineSpan>,
-    mathColor: Color = Color(0xFF0284C7),
-    mathBgColor: Color = Color(0xFF0284C7).copy(alpha = 0.12f),
+    mathColor: Color = Color.Unspecified,
+    mathBgColor: Color = Color.Transparent,
     chemColor: Color = Color(0xFF059669),
     chemBgColor: Color = Color(0xFF059669).copy(alpha = 0.12f)
 ): AnnotatedString {
@@ -803,13 +826,13 @@ fun buildInlineAnnotatedString(
                     val formatted = formatMathExpression(span.formula)
                     withStyle(
                         SpanStyle(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             fontFamily = FontFamily.Monospace,
-                            color = mathColor,
+                            color = if (mathColor != Color.Unspecified) mathColor else Color.Unspecified,
                             background = mathBgColor
                         )
                     ) {
-                        append(" $formatted ")
+                        append(formatted)
                     }
                 }
                 is InlineSpan.Chemistry -> {
@@ -848,39 +871,95 @@ fun formatMathExpression(input: String): String {
         }.filter { it.isNotBlank() }.joinToString("\n")
     }
 
-    // Step 1: Recursively parse \frac{Num}{Den} with nested brace depth matching
+    // Step 1: Unwrap text and font tags: \text{...}, \mathrm{...}, \mathbf{...}, etc.
+    str = str
+        .replace(Regex("\\\\text\\{([^}]+)\\}")) { it.groupValues[1] }
+        .replace(Regex("\\\\mathrm\\{([^}]+)\\}")) { it.groupValues[1] }
+        .replace(Regex("\\\\mathbf\\{([^}]+)\\}")) { it.groupValues[1] }
+        .replace(Regex("\\\\mathit\\{([^}]+)\\}")) { it.groupValues[1] }
+        .replace(Regex("\\\\mathtt\\{([^}]+)\\}")) { it.groupValues[1] }
+
+    // Step 2: Recursively parse \frac{Num}{Den} with nested brace depth matching
     str = parseLaTeXFractions(str)
 
-    // Step 2: Parse \sqrt{x}
+    // Step 3: Parse \sqrt{x}
     str = parseLaTeXRoots(str)
 
-    // Step 3: Format superscripts (x^2 -> x², a^{m+n} -> aᵐ⁺ⁿ) & subscripts (x_1 -> x₁)
+    // Step 4: Format superscripts (x^2 -> x², a^{m+n} -> aᵐ⁺ⁿ) & subscripts (x_1 -> x₁)
     str = formatSuperscriptsAndSubscripts(str)
 
-    // Step 4: Format common LaTeX symbols
+    // Step 5: Format common LaTeX symbols
     str = str
+        .replace("\\implies", "⟹")
+        .replace("\\iff", "⟺")
+        .replace("\\therefore", "∴")
+        .replace("\\because", "∵")
+        .replace("\\Rightarrow", "⟹")
+        .replace("\\Leftarrow", "⟸")
+        .replace("\\Leftrightarrow", "⟺")
+        .replace("\\longrightarrow", "⟶")
+        .replace("\\longleftarrow", "⟵")
         .replace("\\pm", "±")
+        .replace("\\mp", "∓")
         .replace("\\times", "×")
         .replace("\\div", "÷")
-        .replace("\\le", "≤")
-        .replace("\\ge", "≥")
-        .replace("\\neq", "≠")
+        .replace("\\cdot", "·")
         .replace("\\approx", "≈")
+        .replace("\\neq", "≠")
+        .replace("\\ne", "≠")
+        .replace("\\leq", "≤")
+        .replace("\\le", "≤")
+        .replace("\\geq", "≥")
+        .replace("\\ge", "≥")
+        .replace("\\infty", "∞")
+        .replace("\\rightarrow", "→")
+        .replace("\\to", "→")
+        .replace("\\leftarrow", "←")
+        .replace("\\gets", "←")
         .replace("\\left(", "(")
         .replace("\\right)", ")")
+        .replace("\\left[", "[")
+        .replace("\\right]", "]")
+        .replace("\\left\\{", "{")
+        .replace("\\right\\}", "}")
+        .replace("\\left|", "|")
+        .replace("\\right|", "|")
+        .replace("\\left.", "")
+        .replace("\\right.", "")
         .replace("\\%", "%")
         .replace("\\alpha", "α")
         .replace("\\beta", "β")
         .replace("\\gamma", "γ")
         .replace("\\delta", "δ")
+        .replace("\\epsilon", "ε")
         .replace("\\theta", "θ")
+        .replace("\\lambda", "λ")
+        .replace("\\mu", "μ")
         .replace("\\pi", "π")
         .replace("\\sigma", "σ")
+        .replace("\\tau", "τ")
+        .replace("\\phi", "φ")
         .replace("\\omega", "ω")
         .replace("\\Delta", "Δ")
+        .replace("\\Sigma", "Σ")
+        .replace("\\Omega", "Ω")
         .replace("\\sum", "Σ")
         .replace("\\int", "∫")
-        .replace("\\text{", "")
+        .replace("\\degree", "°")
+        .replace("\\angle", "∠")
+        .replace("\\triangle", "△")
+        .replace("\\parallel", "∥")
+        .replace("\\perp", "⊥")
+        .replace("\\cup", "∪")
+        .replace("\\cap", "∩")
+        .replace("\\in", "∈")
+        .replace("\\notin", "∉")
+        .replace("\\subset", "⊂")
+        .replace("\\subseteq", "⊆")
+        .replace("\\emptyset", "∅")
+        .replace("\\empty", "∅")
+        .replace("\\{", "{")
+        .replace("\\}", "}")
 
     return str
 }
@@ -910,7 +989,9 @@ fun parseLaTeXFractions(input: String): String {
     val formattedNum = parseLaTeXFractions(numText)
     val formattedDen = parseLaTeXFractions(denText)
 
-    val replacement = "($formattedNum) / ($formattedDen)"
+    val numWrapped = if (formattedNum.contains("+") || formattedNum.contains("-") || formattedNum.contains(" ") || formattedNum.contains("/")) "($formattedNum)" else formattedNum
+    val denWrapped = if (formattedDen.contains("+") || formattedDen.contains("-") || formattedDen.contains(" ") || formattedDen.contains("/")) "($formattedDen)" else formattedDen
+    val replacement = "$numWrapped / $denWrapped"
     val nextSegment = parseLaTeXFractions(input.substring(denEnd + 1))
 
     return input.substring(0, startIdx) + replacement + nextSegment

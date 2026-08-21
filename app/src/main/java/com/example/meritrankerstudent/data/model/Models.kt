@@ -62,5 +62,8 @@ data class DoubtMessage(
     val practiceTitle: String? = null,
     val practiceTotalQuestions: Int = 5,
     val practiceReadyQuestions: Int = 0,
-    val practiceStatus: String = "GENERATING" // "GENERATING", "READY", "FAILED"
+    val practiceStatus: String = "GENERATING", // "GENERATING", "READY", "FAILED"
+    val isThinking: Boolean = false,
+    val thinkingStatus: String? = null,
+    val errorMessage: String? = null
 )

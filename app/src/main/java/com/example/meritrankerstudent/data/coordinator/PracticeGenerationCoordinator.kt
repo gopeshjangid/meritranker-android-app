@@ -45,7 +45,8 @@ class PracticeGenerationCoordinator(
     private val practiceRepository: PracticeRepository = DefaultPracticeRepository(),
     private val authRepository: AuthRepository = DefaultAuthRepository(),
     private val database: AppDatabase? = context?.let { AppDatabase.getInstance(it) },
-    private val notificationManager: PracticeNotificationManager? = context?.let { PracticeNotificationManager.getInstance(it) }
+    private val notificationManager: PracticeNotificationManager? = context?.let { PracticeNotificationManager.getInstance(it) },
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) {
     companion object {
         private const val TAG = "PracticeGenCoord"
@@ -65,8 +66,6 @@ class PracticeGenerationCoordinator(
             }
         }
     }
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _tasks = MutableStateFlow<Map<String, GenerationTaskState>>(emptyMap())
     val tasks: StateFlow<Map<String, GenerationTaskState>> = _tasks.asStateFlow()
@@ -297,12 +296,20 @@ class PracticeGenerationCoordinator(
     private fun checkTerminalStateAndNotify(task: GenerationTaskState) {
         if (task.status == PracticeGenerationStatus.READY) {
             _latestReadyTask.value = task
-            notificationManager?.notifyPracticeReady(
-                testId = task.testId,
-                title = task.title,
-                activityType = task.activityType,
-                questionCount = task.questionCount
-            )
+            val isVisible = context?.let { SmartTutorGlobalCoordinator.getInstance(it).isConversationVisible(task.conversationId) } ?: false
+            if (!isVisible) {
+                notificationManager?.notifyPracticeReady(
+                    testId = task.testId,
+                    title = task.title,
+                    activityType = task.activityType,
+                    questionCount = task.questionCount
+                )
+            } else {
+                Log.d(TAG, "PRACTICE_NOTIFICATION_SUPPRESSED reason=VISIBLE_IN_TUTOR testId=${task.testId}")
+                com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+                    com.example.meritrankerstudent.observability.TelemetryEvent.PracticeReadyNotificationSuppressed("VISIBLE_IN_TUTOR")
+                )
+            }
             cleanUpTaskSubscription(task.testId)
         } else if (task.status == PracticeGenerationStatus.FAILED || task.status == PracticeGenerationStatus.CANCELLED) {
             cleanUpTaskSubscription(task.testId)

@@ -68,6 +68,46 @@ class TutorStreamClientPayloadTest {
     }
 
     @Test
+    fun buildJsonPayload_withExamProfileIdOnly_omitsExamIdAndStage() {
+        val payload = TutorRequestPayload(
+            conversationId = "conv-123",
+            turnId = "turn-456",
+            userId = "student-789",
+            query = "What is Bayes theorem?",
+            examProfileId = "CAT_MANAGEMENT#PRE"
+        )
+
+        val json = TutorStreamClient.buildJsonPayload(payload)
+
+        assertEquals("CAT_MANAGEMENT#PRE", json.getString("exam_profile_id"))
+        assertFalse("Should not contain exam_id when null", json.has("exam_id"))
+        assertFalse("Should not contain exam_stage when null", json.has("exam_stage"))
+    }
+
+    @Test
+    fun buildJsonPayload_languageNormalization_normalizesHindiAndHinglish() {
+        val hindiPayload = TutorRequestPayload(
+            conversationId = "conv-1",
+            turnId = "turn-1",
+            userId = "student-1",
+            query = "प्रतिशत लाभ कैसे निकालें?",
+            language = "hi"
+        )
+        val json = TutorStreamClient.buildJsonPayload(hindiPayload)
+        assertEquals("hi", json.getString("language"))
+
+        val hinglishPayload = TutorRequestPayload(
+            conversationId = "conv-2",
+            turnId = "turn-2",
+            userId = "student-2",
+            query = "Profit kaise calculate karein?",
+            language = "hinglish"
+        )
+        val jsonHinglish = TutorStreamClient.buildJsonPayload(hinglishPayload)
+        assertEquals("hinglish", jsonHinglish.getString("language"))
+    }
+
+    @Test
     fun allowedActionRoutes_whitelistsKnownRoutesOnly() {
         assertTrue(TutorStreamClient.ALLOWED_ACTION_ROUTES.contains("QUIZ"))
         assertTrue(TutorStreamClient.ALLOWED_ACTION_ROUTES.contains("MOCK"))

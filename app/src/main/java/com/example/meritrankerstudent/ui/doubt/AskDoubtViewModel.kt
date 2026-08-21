@@ -62,6 +62,8 @@ data class DoubtUiState(
     val examStage: String? = null,
     val isSending: Boolean = false,
     val sendError: String? = null,
+    val serverStatusLabel: String? = null,
+    val curatedSuggestions: List<TutorSuggestion> = emptyList(),
     val reportingMessageId: String? = null,
     val isReporting: Boolean = false,
     val reportSuccessMessage: String? = null,
@@ -234,7 +236,14 @@ class AskDoubtViewModel(
         }
     }
 
-    fun startNewChat() {
+    fun loadCuratedSuggestions(context: android.content.Context) {
+        if (_uiState.value.curatedSuggestions.isEmpty()) {
+            val selected = TutorSuggestionSelector.selectSuggestions(context, 3)
+            _uiState.update { it.copy(curatedSuggestions = selected) }
+        }
+    }
+
+    fun startNewChat(context: android.content.Context? = null) {
         activeStreamJob?.cancel()
         voiceBaseText = ""
         voiceAccumulatedText = ""
@@ -244,11 +253,18 @@ class AskDoubtViewModel(
         repository.setActiveConversation(newConvId)
         android.util.Log.d("MeritRankerChat", "NEW_CHAT_REQUESTED newConvId=$newConvId")
 
+        val newSuggestions = if (context != null) {
+            TutorSuggestionSelector.selectSuggestions(context, 3)
+        } else {
+            _uiState.value.curatedSuggestions
+        }
+
         _uiState.update {
             it.copy(
                 activeConversationId = newConvId,
                 currentTurnId = newTurnId,
                 messages = emptyList(),
+                curatedSuggestions = newSuggestions,
                 inputText = "",
                 selectedAttachmentUri = null,
                 selectedAttachmentBase64 = null,
@@ -264,6 +280,7 @@ class AskDoubtViewModel(
                 isSending = false,
                 isStreaming = false,
                 isAiThinking = false,
+                serverStatusLabel = null,
                 sendError = null
             )
         }
@@ -661,13 +678,13 @@ class AskDoubtViewModel(
 
     fun submitPromptDirectly(promptText: String) {
         _uiState.update { it.copy(inputText = promptText) }
-        sendMessage()
+        sendMessage(promptText)
     }
 
     // Unified Submission Path (Text, Voice Transcript, Image + Text)
-    fun sendMessage() {
+    fun sendMessage(explicitQuery: String? = null) {
         val state = _uiState.value
-        val trimmedQuery = state.inputText.trim()
+        val trimmedQuery = (explicitQuery ?: state.inputText).trim()
         val attachmentUri = state.selectedAttachmentUri
         val attachmentBase64 = state.selectedAttachmentBase64
 
@@ -704,6 +721,7 @@ class AskDoubtViewModel(
                 isSending = true,
                 isAiThinking = true,
                 isStreaming = true,
+                serverStatusLabel = "Thinking…",
                 sendError = null
             )
         }
@@ -722,8 +740,8 @@ class AskDoubtViewModel(
                 query = trimmedQuery,
                 language = state.selectedLanguage,
                 examProfileId = state.examProfileId,
-                examId = state.selectedExam,
-                examStage = state.examStage,
+                examId = if (state.examProfileId.isNullOrBlank()) state.selectedExam else null,
+                examStage = if (state.examProfileId.isNullOrBlank()) state.examStage else null,
                 imageUri = attachmentUri,
                 imageBase64 = attachmentBase64,
                 imageMimeType = "image/jpeg"
@@ -742,7 +760,8 @@ class AskDoubtViewModel(
                                 )
                             )
                         }
-                        _uiState.update { it.copy(isAiThinking = false, isStreaming = true) }
+                        // First chunk arrived: immediately clear thinking indicator
+                        _uiState.update { it.copy(isAiThinking = false, serverStatusLabel = null, isStreaming = true) }
                     }
 
                     val totalDuration = System.currentTimeMillis() - startTime
@@ -761,6 +780,7 @@ class AskDoubtViewModel(
                             isSending = false,
                             isStreaming = false,
                             isAiThinking = false,
+                            serverStatusLabel = null,
                             sendError = null
                         )
                     }
@@ -786,6 +806,7 @@ class AskDoubtViewModel(
                         isSending = false,
                         isStreaming = false,
                         isAiThinking = false,
+                        serverStatusLabel = null,
                         sendError = "Couldn't send your doubt. Tap retry to attempt again."
                     )
                 }

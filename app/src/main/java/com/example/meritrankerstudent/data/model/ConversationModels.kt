@@ -38,8 +38,8 @@ data class DoubtRequest(
     val query: String,
     val language: String = "english",
     val examProfileId: String? = null,
-    val examId: String? = "SSC CGL",
-    val examStage: String? = "Tier 1",
+    val examId: String? = null,
+    val examStage: String? = null,
     val imageUri: String? = null,
     val imageBase64: String? = null,
     val imageMimeType: String? = null

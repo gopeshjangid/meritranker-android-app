@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "suggestions": [
+    {
+      "id": "quant_01",
+      "subject": "Quantitative Aptitude",
+      "subjectHi": "मात्रात्मक योग्यता",
+      "type": "doubt",
+      "title": "Profit & Loss Calculation",
+      "titleHi": "लाभ व हानि का प्रश्न",
+      "text": "A shopkeeper marks goods 40% above cost price and allows a 20% discount. If the profit is ₹480, find the cost price.",
+      "textHi": "एक दुकानदार वस्तु का मूल्य क्रय मूल्य से 40% अधिक अंकित करता है और 20% की छूट देता है। यदि उसे ₹480 का लाभ होता है, तो क्रय मूल्य निकालें।"
+    },
+    {
+      "id": "quant_02",
+      "subject": "Quantitative Aptitude",
+      "subjectHi": "मात्रात्मक योग्यता",
+      "type": "doubt",
+      "title": "Time & Work Concept",
+      "titleHi": "कार्य व समय का प्रश्न",
+      "text": "A can complete a piece of work in 12 days and B in 18 days. If they work together for 4 days, what fraction of work is left?",
+      "textHi": "A किसी कार्य को 12 दिनों में तथा B 18 दिनों में पूरा कर सकता है। यदि वे 4 दिन तक एक साथ कार्य करते हैं, तो कितना भाग शेष रहेगा?"
+    },
+    {
+      "id": "quant_03",
+      "subject": "Quantitative Aptitude",
+      "subjectHi": "मात्रात्मक योग्यता",
+      "type": "practice",
+      "title": "Compound Interest Shortcut",
+      "titleHi": "चक्रवृद्धि ब्याज शॉर्टकट",
+      "text": "Explain the difference between simple interest and compound interest for 2 years with the formula and an example.",
+      "textHi": "2 वर्ष के लिए साधारण ब्याज और चक्रवृद्धि ब्याज के अंतर की गणना का शॉर्टकट सूत्र उदाहरण सहित समझाइए।"
+    },
+    {
+      "id": "quant_04",
+      "subject": "Quantitative Aptitude",
+      "subjectHi": "मात्रात्मक योग्यता",
+      "type": "doubt",
+      "title": "Speed, Time & Distance",
+      "titleHi": "चाल, समय व दूरी",
+      "text": "A train 240 m long passes a pole in 24 seconds. How long will it take to cross a platform 650 m long?",
+      "textHi": "240 मीटर लंबी एक रेलगाड़ी 24 सेकंड में एक खंभे को पार करती है। 650 मीटर लंबे प्लेटफॉर्म को पार करने में इसे कितना समय लगेगा?"
+    },
+    {
+      "id": "reasoning_01",
+      "subject": "Logical Reasoning",
+      "subjectHi": "तार्किक क्षमता",
+      "type": "doubt",
+      "title": "Syllogism Deductive Logic",
+      "titleHi": "न्याय वाक्य (Syllogism)",
+      "text": "Statements: (1) All cats are dogs. (2) Some dogs are birds. Conclusions: I. Some cats are birds. II. No cat is a bird. Solve with Venn diagram.",
+      "textHi": "कथन: (1) सभी बिल्लियां कुत्ते हैं। (2) कुछ कुत्ते पक्षी हैं। निष्कर्ष: I. कुछ बिल्लियां पक्षी हैं। II. कोई बिल्ली पक्षी नहीं है। वेन आरेख से हल करें।"
+    },
+    {
+      "id": "reasoning_02",
+      "subject": "Logical Reasoning",
+      "subjectHi": "तार्किक क्षमता",
+      "type": "doubt",
+      "title": "Blood Relation Tree",
+      "titleHi": "रक्त संबंध (Blood Relation)",
+      "text": "Pointing to a photograph, a woman says: 'He is the only son of the wife of my father.' How is the man related to the woman?",
+      "textHi": "एक तस्वीर की ओर इशारा करते हुए एक महिला कहती है: 'वह मेरे पिता की पत्नी का इकलौता पुत्र है।' उस पुरुष का महिला से क्या संबंध है?"
+    },
+    {
+      "id": "reasoning_03",
+      "subject": "Logical Reasoning",
+      "subjectHi": "तार्किक क्षमता",
+      "type": "practice",
+      "title": "Seating Arrangement Strategy",
+      "titleHi": "बैठक व्यवस्था शॉर्टकट",
+      "text": "What is the systematic step-by-step approach to solve 8-person circular seating arrangement with some facing inward and some outward?",
+      "textHi": "वृत्ताकार मेज के चारों ओर केंद्र और केंद्र से बाहर मुंह करके बैठे 8 व्यक्तियों की पहेली को सुलझाने का सही तरीका बताएं।"
+    },
+    {
+      "id": "reasoning_04",
+      "subject": "Logical Reasoning",
+      "subjectHi": "तार्किक क्षमता",
+      "type": "doubt",
+      "title": "Direction & Distance",
+      "titleHi": "दिशा एवं दूरी",
+      "text": "A person walks 10m North, turns right and walks 15m, then turns left and walks 10m. What is the shortest distance from the start point?",
+      "textHi": "एक व्यक्ति 10 मीटर उत्तर चलता है, दाएं मुड़कर 15 मीटर चलता है, फिर बाएं मुड़कर 10 मीटर चलता है। आरंभिक बिंदु से न्यूनतम दूरी क्या है?"
+    },
+    {
+      "id": "english_01",
+      "subject": "General English",
+      "subjectHi": "सामान्य अंग्रेजी",
+      "type": "explanation",
+      "title": "Subject-Verb Agreement Rules",
+      "titleHi": "Subject-Verb Agreement नियम",
+      "text": "Explain the rules of Subject-Verb Agreement when subjects are joined by 'Neither...nor' and 'Along with' with exam examples.",
+      "textHi": "'Neither...nor' और 'Along with' से जुड़े वाक्यों में Subject-Verb Agreement के नियम उदाहरण सहित समझाइए।"
+    },
+    {
+      "id": "english_02",
+      "subject": "General English",
+      "subjectHi": "सामान्य अंग्रेजी",
+      "type": "doubt",
+      "title": "Error Spotting in Prepositions",
+      "titleHi": "Preposition Error Spotting",
+      "text": "Find the error: 'The committee comprises of five senior members who have extensive experience in education.'",
+      "textHi": "त्रुटि पहचानें: 'The committee comprises of five senior members who have extensive experience in education.'"
+    },
+    {
+      "id": "english_03",
+      "subject": "General English",
+      "subjectHi": "सामान्य अंग्रेजी",
+      "type": "explanation",
+      "title": "Active & Passive Voice Transformation",
+      "titleHi": "Active & Passive Voice नियम",
+      "text": "How do we convert imperative and interrogative sentences from Active to Passive voice? Explain with 3 standard exam examples.",
+      "textHi": "Imperative और Interrogative वाक्यों को Active से Passive Voice में बदलने के नियम 3 उदाहरणों के साथ बताएं।"
+    },
+    {
+      "id": "gs_01",
+      "subject": "General Science & GK",
+      "subjectHi": "सामान्य विज्ञान व ज्ञान",
+      "type": "explanation",
+      "title": "Indian Constitution Articles",
+      "titleHi": "भारतीय संविधान के महत्वपूर्ण अनुच्छेद",
+      "text": "Summarize Fundamental Rights from Article 12 to Article 35 of the Indian Constitution with their key provisions.",
+      "textHi": "भारतीय संविधान के अनुच्छेद 12 से 35 तक मौलिक अधिकारों (Fundamental Rights) के मुख्य प्रावधानों का सारांश दें।"
+    },
+    {
+      "id": "gs_02",
+      "subject": "General Science & GK",
+      "subjectHi": "सामान्य विज्ञान व ज्ञान",
+      "type": "doubt",
+      "title": "Physics Laws & Units",
+      "titleHi": "भौतिकी के नियम व SI मात्रक",
+      "text": "Explain Newton's Three Laws of Motion with real-world everyday examples and write their standard SI units.",
+      "textHi": "न्यूटन के गति के तीनों नियमों को दैनिक जीवन के उदाहरणों और उनके SI मात्रकों के साथ समझाइए।"
+    },
+    {
+      "id": "gs_03",
+      "subject": "General Science & GK",
+      "subjectHi": "सामान्य विज्ञान व ज्ञान",
+      "type": "explanation",
+      "title": "Endocrine Glands & Hormones",
+      "titleHi": "अंतःस्रावी ग्रंथियां एवं हार्मोन",
+      "text": "List the major endocrine glands in the human body, the hormones they secrete, and their primary physiological functions.",
+      "textHi": "मानव शरीर की प्रमुख अंतःस्रावी ग्रंथियों, उनसे स्रावित होने वाले हार्मोन और उनके मुख्य कार्यों की सूची बनाएं।"
+    }
+  ]
+}

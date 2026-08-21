@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import com.example.meritrankerstudent.ui.progress.ProgressScreen
 import com.example.meritrankerstudent.ui.practice.PracticeScreen
@@ -95,7 +96,7 @@ fun MainScreen(
                         NavigationBarItem(
                             selected = currentTab == MainTab.PRACTICE,
                             onClick = { viewModel.selectTab(MainTab.PRACTICE) },
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Practice") },
+                            icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Practice") },
                             label = { Text("Practice") },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,

@@ -69,9 +69,9 @@ fun SmartTutorNavIcon(
         if (isGenerating) {
             val ringBrush = Brush.sweepGradient(
                 listOf(
-                    MeritRankerColors.BrandBlue,
                     MeritRankerColors.BrandOrange,
-                    MeritRankerColors.BrandBlue
+                    MeritRankerColors.BrandOrangeLight,
+                    MeritRankerColors.BrandOrange
                 )
             )
             Box(

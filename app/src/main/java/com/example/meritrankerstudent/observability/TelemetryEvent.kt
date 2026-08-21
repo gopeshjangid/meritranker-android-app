@@ -240,6 +240,50 @@ sealed class TelemetryEvent(
         }
     )
 
+    data class SmartTutorGlobalActivityStarted(val activityType: String) : TelemetryEvent(
+        eventName = "smart_tutor_global_activity_started",
+        params = mapOf("activity_type" to activityType)
+    )
+
+    data class SmartTutorGlobalActivityStopped(val finalActivityCount: Int) : TelemetryEvent(
+        eventName = "smart_tutor_global_activity_stopped",
+        params = mapOf("final_activity_count" to finalActivityCount.toString())
+    )
+
+    data class PracticeReadyNotificationAttempt(val activityType: String) : TelemetryEvent(
+        eventName = "practice_ready_notification_attempt",
+        params = mapOf("activity_type" to activityType)
+    )
+
+    data class PracticeReadyNotificationShown(
+        val activityType: String,
+        val questionCountBucket: String
+    ) : TelemetryEvent(
+        eventName = "practice_ready_notification_shown",
+        params = mapOf(
+            "activity_type" to activityType,
+            "question_count_bucket" to questionCountBucket
+        )
+    )
+
+    data class PracticeReadyNotificationSuppressed(val reason: String) : TelemetryEvent(
+        eventName = "practice_ready_notification_suppressed",
+        params = mapOf("reason" to reason)
+    )
+
+    object DoubtReadyNotificationAttempt : TelemetryEvent(
+        eventName = "doubt_ready_notification_attempt"
+    )
+
+    object DoubtReadyNotificationShown : TelemetryEvent(
+        eventName = "doubt_ready_notification_shown"
+    )
+
+    data class DoubtReadyNotificationSuppressed(val reason: String) : TelemetryEvent(
+        eventName = "doubt_ready_notification_suppressed",
+        params = mapOf("reason" to reason)
+    )
+
     data class PracticeViewed(val examProfileId: String?) : TelemetryEvent(
         eventName = "practice_viewed",
         params = buildMap {

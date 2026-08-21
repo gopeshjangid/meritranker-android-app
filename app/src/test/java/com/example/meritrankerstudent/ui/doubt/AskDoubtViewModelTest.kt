@@ -329,6 +329,45 @@ class AskDoubtViewModelTest {
         assertEquals("CBT 1", viewModel.uiState.value.examStage)
         assertEquals(newProfile, viewModel.uiState.value.selectedExamProfile)
     }
+
+    @Test
+    fun doubleSend_doesNotTriggerMultipleConcurrentRequests() = runTest(testDispatcher) {
+        viewModel.onInputTextChange("Single question query")
+        viewModel.sendMessage()
+        // Immediate second call while sending
+        viewModel.sendMessage()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, fakeRepository.sentRequests.size)
+    }
+
+    @Test
+    fun sendDoubt_withExamProfileId_omitsRawExamIdFromRequest() = runTest(testDispatcher) {
+        val newProfile = com.example.meritrankerstudent.data.model.ExamProfile(
+            examProfileId = "CAT_MANAGEMENT#PRE",
+            examId = "CAT",
+            examName = "CAT Management",
+            stage = "PRE",
+            description = "CAT Management Preparation",
+            sections = emptyList(),
+            totalQuestions = 66,
+            totalMarks = 198.0,
+            totalTimeMinutes = 120,
+            active = true
+        )
+        viewModel.onExamProfileSelected(newProfile)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onInputTextChange("Explain Data Interpretation set 1")
+        viewModel.sendMessage()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, fakeRepository.sentRequests.size)
+        val sent = fakeRepository.sentRequests.first()
+        assertEquals("CAT_MANAGEMENT#PRE", sent.examProfileId)
+        assertNull("Raw examId must be null when examProfileId is present", sent.examId)
+        assertNull("Raw examStage must be null when examProfileId is present", sent.examStage)
+    }
 }
 
 class FakeDoubtRepository : DoubtRepository {

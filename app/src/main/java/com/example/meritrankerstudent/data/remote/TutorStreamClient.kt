@@ -47,8 +47,8 @@ data class TutorRequestPayload(
     val userId: String,
     val query: String,
     val examProfileId: String? = null,
-    val examId: String? = "SSC_CGL",
-    val examStage: String? = "Tier 1",
+    val examId: String? = null,
+    val examStage: String? = null,
     val language: String = "en",
     val mode: String = "doubt_solver",
     val stream: Boolean = true,
@@ -58,7 +58,7 @@ data class TutorRequestPayload(
 
 class TutorStreamClient(
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(3, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .build(),
@@ -69,15 +69,21 @@ class TutorStreamClient(
         val ALLOWED_ACTION_ROUTES = setOf("QUIZ", "MOCK", "PYQ")
 
         fun buildJsonPayload(payload: TutorRequestPayload): JSONObject {
+            val normalizedLang = when (payload.language.lowercase()) {
+                "hi", "hindi", "हिंदी" -> "hi"
+                "hinglish" -> "hinglish"
+                else -> "en"
+            }
+
             return JSONObject().apply {
                 put("conversation_id", payload.conversationId)
                 put("turn_id", payload.turnId)
-                put("user_id", payload.userId)
+                put("user_id", payload.userId.ifBlank { "local-user" })
                 put("query", payload.query)
                 payload.examProfileId?.let { put("exam_profile_id", it) }
                 payload.examId?.let { put("exam_id", it) }
                 payload.examStage?.let { put("exam_stage", it) }
-                put("language", payload.language)
+                put("language", normalizedLang)
                 put("mode", payload.mode)
                 put("stream", payload.stream)
 
@@ -96,15 +102,23 @@ class TutorStreamClient(
     ): Flow<TutorStreamEvent> = flow {
         val jsonBody = buildJsonPayload(payload).toString()
 
-        val candidateUrls = if (endpointUrl.contains("10.0.2.2:3000")) {
-            listOf(
-                endpointUrl.replace("10.0.2.2:3000", "127.0.0.1:3000"),
-                endpointUrl.replace("10.0.2.2:3000", "localhost:3000"),
-                endpointUrl
-            ).distinct()
-        } else {
-            listOf(endpointUrl)
-        }
+        val candidateUrls = buildList {
+            // In debug builds, prioritize localhost (adb reverse on physical device & desktop)
+            if (BuildConfig.DEBUG) {
+                add("http://localhost:3000/api/dev/doubt-solver")
+                add("http://localhost:8080/invocations")
+                add("http://127.0.0.1:3000/api/dev/doubt-solver")
+                add("http://127.0.0.1:8080/invocations")
+                add(endpointUrl)
+                add("http://10.0.2.2:3000/api/dev/doubt-solver")
+                add("http://10.0.2.2:8080/invocations")
+            } else {
+                add(endpointUrl)
+                if (!endpointUrl.endsWith("/invocations")) {
+                    add("${BuildConfig.TUTOR_API_BASE_URL}/invocations")
+                }
+            }
+        }.distinct()
 
         var response: okhttp3.Response? = null
         var lastConnectException: Exception? = null
@@ -122,8 +136,12 @@ class TutorStreamClient(
             val request = requestBuilder.build()
             try {
                 val resp = withContext(Dispatchers.IO) { client.newCall(request).execute() }
-                response = resp
-                break
+                if (resp.isSuccessful || resp.code == 400 || resp.code == 401 || resp.code == 403 || resp.code == 429) {
+                    response = resp
+                    break
+                } else {
+                    resp.close()
+                }
             } catch (e: Exception) {
                 lastConnectException = e
                 // Try next candidate

@@ -30,7 +30,8 @@ class PracticeGenerationCoordinatorTest {
             practiceRepository = fakePracticeRepo,
             authRepository = fakeAuthRepo,
             database = null,
-            notificationManager = null
+            notificationManager = null,
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.test.StandardTestDispatcher())
         )
     }
 

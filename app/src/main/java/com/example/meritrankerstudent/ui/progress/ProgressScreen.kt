@@ -1,5 +1,6 @@
 package com.example.meritrankerstudent.ui.progress
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,20 +16,22 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import com.example.meritrankerstudent.QuizList
 import com.example.meritrankerstudent.SubjectProgress
+import com.example.meritrankerstudent.data.model.ExamProfile
 import com.example.meritrankerstudent.data.model.GetStudentPerformanceView
 import com.example.meritrankerstudent.data.model.StudentPerformanceItem
 import com.example.meritrankerstudent.data.model.StudentPerformanceOverall
@@ -48,34 +51,29 @@ fun ProgressScreen(
     val selectedExamProfile by viewModel.selectedExamProfile.collectAsStateWithLifecycle()
     val availableExamProfiles by viewModel.availableExamProfiles.collectAsStateWithLifecycle()
     val isHindi = selectedLanguage.startsWith("hi", ignoreCase = true)
+    val isRefreshing = (uiState as? ProgressUiState.Content)?.isRefreshing ?: false
 
-    Scaffold(
-        topBar = {
-            com.example.meritrankerstudent.ui.components.MeritRankerTopBar(
-                title = if (isHindi) "अधिगम प्रगति" else "Progress",
-                subtitle = if (isHindi) "विश्लेषण व सुधार" else "Analytics & Mastery",
-                selectedExamProfile = selectedExamProfile,
-                availableExamProfiles = availableExamProfiles,
-                onExamProfileSelected = { viewModel.selectExamProfile(it) },
-                actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = if (isHindi) "प्रगति ताज़ा करें" else "Refresh Progress"
-                        )
-                    }
-                }
-            )
-        },
+    Surface(
         modifier = modifier
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (val state = uiState) {
-                is ProgressUiState.Loading -> {
+            .fillMaxSize()
+            .statusBarsPadding(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        when (val state = uiState) {
+            is ProgressUiState.Loading -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    ProgressContentHeader(
+                        selectedExamProfile = selectedExamProfile,
+                        availableExamProfiles = availableExamProfiles,
+                        onExamProfileSelected = { viewModel.selectExamProfile(it) },
+                        isHindi = isHindi,
+                        isRefreshing = true,
+                        onRefresh = { viewModel.refresh() }
+                    )
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -83,42 +81,232 @@ fun ProgressScreen(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                is ProgressUiState.Empty -> {
-                    EmptyProgressView(
-                        examName = state.examName,
-                        selectedView = selectedView,
-                        onSwitchView = { viewModel.switchView(it) },
-                        message = state.message,
-                        isHindi = isHindi
+            }
+            is ProgressUiState.Empty -> {
+                EmptyProgressView(
+                    selectedExamProfile = selectedExamProfile,
+                    availableExamProfiles = availableExamProfiles,
+                    onExamProfileSelected = { viewModel.selectExamProfile(it) },
+                    selectedView = selectedView,
+                    onSwitchView = { viewModel.switchView(it) },
+                    onStartPractice = { onItemClick(QuizList) },
+                    message = state.message,
+                    isHindi = isHindi,
+                    isRefreshing = isRefreshing,
+                    onRefresh = { viewModel.refresh() }
+                )
+            }
+            is ProgressUiState.Error -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    ProgressContentHeader(
+                        selectedExamProfile = selectedExamProfile,
+                        availableExamProfiles = availableExamProfiles,
+                        onExamProfileSelected = { viewModel.selectExamProfile(it) },
+                        isHindi = isHindi,
+                        isRefreshing = isRefreshing,
+                        onRefresh = { viewModel.refresh() }
                     )
-                }
-                is ProgressUiState.Error -> {
                     ErrorProgressView(
                         message = state.message,
                         onRetry = { viewModel.loadPerformance() },
                         isHindi = isHindi
                     )
                 }
-                is ProgressUiState.Content -> {
-                    ProgressContent(
-                        response = state.response,
-                        selectedView = state.selectedView,
-                        examName = state.examName,
-                        examProfileId = state.examProfileId,
-                        isRefreshing = state.isRefreshing,
-                        isHindi = isHindi,
-                        onSwitchView = { viewModel.switchView(it) },
-                        onSubjectClick = { item ->
-                            onItemClick(
-                                SubjectProgress(
-                                    subjectId = item.subjectId,
-                                    subjectName = item.subjectName,
-                                    examProfileId = state.examProfileId,
-                                    view = state.selectedView.name
-                                )
+            }
+            is ProgressUiState.Content -> {
+                ProgressContent(
+                    response = state.response,
+                    selectedView = state.selectedView,
+                    selectedExamProfile = selectedExamProfile,
+                    availableExamProfiles = availableExamProfiles,
+                    onExamProfileSelected = { viewModel.selectExamProfile(it) },
+                    examName = state.examName,
+                    examProfileId = state.examProfileId,
+                    isRefreshing = state.isRefreshing,
+                    isHindi = isHindi,
+                    onRefresh = { viewModel.refresh() },
+                    onSwitchView = { viewModel.switchView(it) },
+                    onSubjectClick = { item ->
+                        onItemClick(
+                            SubjectProgress(
+                                subjectId = item.subjectId,
+                                subjectName = item.subjectName,
+                                examProfileId = state.examProfileId,
+                                view = state.selectedView.name
+                            )
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressContentHeader(
+    selectedExamProfile: ExamProfile?,
+    availableExamProfiles: List<ExamProfile>,
+    onExamProfileSelected: (ExamProfile) -> Unit,
+    isHindi: Boolean,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Title Row with Refresh Action
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = if (isHindi) "अधिगम प्रगति" else "Progress",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = (-0.5).sp
+                    )
+                )
+                Text(
+                    text = if (isHindi) "विश्लेषण व अपनी तैयारी का आकलन करें" else "Your performance at a glance",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+
+            IconButton(
+                onClick = onRefresh,
+                enabled = !isRefreshing,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = if (isHindi) "प्रगति ताज़ा करें" else "Refresh Progress",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // Authoritative Dynamic ExamProfile Context & Selector
+        if (availableExamProfiles.isNotEmpty() || selectedExamProfile != null) {
+            val displayLabel = remember(selectedExamProfile) {
+                if (selectedExamProfile != null) {
+                    "${selectedExamProfile.examName} · ${selectedExamProfile.stage}"
+                } else {
+                    "Select Exam"
+                }
+            }
+            var showMenu by remember { mutableStateOf(false) }
+
+            Box {
+                Surface(
+                    onClick = { if (availableExamProfiles.isNotEmpty()) showMenu = true },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                    enabled = availableExamProfiles.isNotEmpty()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.School,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = displayLabel,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (availableExamProfiles.size > 1) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Switch Exam Profile",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp
+                ) {
+                    availableExamProfiles.forEach { profile ->
+                        val isSelected = profile.examProfileId == selectedExamProfile?.examProfileId
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(
+                                        text = profile.examName,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                    Text(
+                                        text = profile.stage,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
+                                }
+                            },
+                            trailingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            } else null,
+                            onClick = {
+                                showMenu = false
+                                onExamProfileSelected(profile)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -129,10 +317,14 @@ fun ProgressScreen(
 private fun ProgressContent(
     response: StudentPerformanceResponse,
     selectedView: GetStudentPerformanceView,
+    selectedExamProfile: ExamProfile?,
+    availableExamProfiles: List<ExamProfile>,
+    onExamProfileSelected: (ExamProfile) -> Unit,
     examName: String,
     examProfileId: String,
     isRefreshing: Boolean,
     isHindi: Boolean,
+    onRefresh: () -> Unit,
     onSwitchView: (GetStudentPerformanceView) -> Unit,
     onSubjectClick: (StudentPerformanceItem) -> Unit
 ) {
@@ -143,63 +335,46 @@ private fun ProgressContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
     ) {
-        // Exam Title & Mode Selector
+        // Content-level Header
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Exam pill
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = examName,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                }
+            ProgressContentHeader(
+                selectedExamProfile = selectedExamProfile,
+                availableExamProfiles = availableExamProfiles,
+                onExamProfileSelected = onExamProfileSelected,
+                isHindi = isHindi,
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh
+            )
+        }
 
-                // View Switcher (PRACTICE vs REAL_EXAM)
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
+        // View Switcher (PRACTICE vs REAL_EXAM)
+        item {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                SegmentedButton(
+                    selected = selectedView == GetStudentPerformanceView.PRACTICE,
+                    onClick = { onSwitchView(GetStudentPerformanceView.PRACTICE) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    icon = {
+                        if (selectedView == GetStudentPerformanceView.PRACTICE) {
+                            SegmentedButtonDefaults.Icon(active = true)
+                        }
+                    }
                 ) {
-                    SegmentedButton(
-                        selected = selectedView == GetStudentPerformanceView.PRACTICE,
-                        onClick = { onSwitchView(GetStudentPerformanceView.PRACTICE) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        icon = {
-                            if (selectedView == GetStudentPerformanceView.PRACTICE) {
-                                SegmentedButtonDefaults.Icon(active = true)
-                            }
+                    Text(if (isHindi) "अभ्यास (Practice)" else "Practice")
+                }
+                SegmentedButton(
+                    selected = selectedView == GetStudentPerformanceView.REAL_EXAM,
+                    onClick = { onSwitchView(GetStudentPerformanceView.REAL_EXAM) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    icon = {
+                        if (selectedView == GetStudentPerformanceView.REAL_EXAM) {
+                            SegmentedButtonDefaults.Icon(active = true)
                         }
-                    ) {
-                        Text(if (isHindi) "अभ्यास (Practice)" else "Practice")
                     }
-                    SegmentedButton(
-                        selected = selectedView == GetStudentPerformanceView.REAL_EXAM,
-                        onClick = { onSwitchView(GetStudentPerformanceView.REAL_EXAM) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        icon = {
-                            if (selectedView == GetStudentPerformanceView.REAL_EXAM) {
-                                SegmentedButtonDefaults.Icon(active = true)
-                            }
-                        }
-                    ) {
-                        Text(if (isHindi) "मॉक व टेस्ट (Mocks)" else "Mocks & Tests")
-                    }
+                ) {
+                    Text(if (isHindi) "मॉक व टेस्ट (Mocks)" else "Mocks & Tests")
                 }
             }
         }
@@ -626,46 +801,123 @@ private fun formatTimeSeconds(timeMs: Long): String {
 
 @Composable
 private fun EmptyProgressView(
-    examName: String,
+    selectedExamProfile: ExamProfile?,
+    availableExamProfiles: List<ExamProfile>,
+    onExamProfileSelected: (ExamProfile) -> Unit,
     selectedView: GetStudentPerformanceView,
     onSwitchView: (GetStudentPerformanceView) -> Unit,
+    onStartPractice: () -> Unit,
     message: String,
-    isHindi: Boolean = false
+    isHindi: Boolean = false,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-            modifier = Modifier.size(72.dp)
+        // Content Header
+        ProgressContentHeader(
+            selectedExamProfile = selectedExamProfile,
+            availableExamProfiles = availableExamProfiles,
+            onExamProfileSelected = onExamProfileSelected,
+            isHindi = isHindi,
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // View Switcher (PRACTICE vs REAL_EXAM)
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            SegmentedButton(
+                selected = selectedView == GetStudentPerformanceView.PRACTICE,
+                onClick = { onSwitchView(GetStudentPerformanceView.PRACTICE) },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                icon = {
+                    if (selectedView == GetStudentPerformanceView.PRACTICE) {
+                        SegmentedButtonDefaults.Icon(active = true)
+                    }
+                }
+            ) {
+                Text(if (isHindi) "अभ्यास (Practice)" else "Practice")
+            }
+            SegmentedButton(
+                selected = selectedView == GetStudentPerformanceView.REAL_EXAM,
+                onClick = { onSwitchView(GetStudentPerformanceView.REAL_EXAM) },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                icon = {
+                    if (selectedView == GetStudentPerformanceView.REAL_EXAM) {
+                        SegmentedButtonDefaults.Icon(active = true)
+                    }
+                }
+            ) {
+                Text(if (isHindi) "मॉक व टेस्ट (Mocks)" else "Mocks & Tests")
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                modifier = Modifier.size(72.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isHindi) "अभी तक कोई प्रगति डेटा नहीं है" else "No Progress Data Yet",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (isHindi) "अभ्यास पूरा करने के बाद आपकी प्रगति यहाँ दिखाई देगी।" else "Complete a practice quiz or mock test to start tracking your performance.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onStartPractice,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.TrendingUp,
+                    Icons.AutoMirrored.Filled.Assignment,
                     contentDescription = null,
-                    modifier = Modifier.size(36.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isHindi) "अभ्यास शुरू करें" else "Start Practice",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = if (isHindi) "अभी तक कोई प्रगति डेटा नहीं है" else "No Progress Data Yet",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = if (isHindi) "अभ्यास पूरा करने के बाद आपकी प्रगति यहाँ दिखाई देगी।" else message,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        )
+
+        Spacer(modifier = Modifier.weight(1.5f))
     }
 }
 
