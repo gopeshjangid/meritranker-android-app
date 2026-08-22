@@ -31,7 +31,7 @@ data object ConversationHistory : NavKey
 data class QuestionPlayer(val mode: String, val id: String) : NavKey
 
 @Serializable
-data class ResultFeedback(val score: Int, val total: Int, val mode: String, val id: String) : NavKey
+data class ResultFeedback(val score: Int, val total: Int, val mode: String, val id: String, val attemptId: String = "") : NavKey
 
 @Serializable
 data class PracticeReview(val attemptId: String, val activityId: String) : NavKey

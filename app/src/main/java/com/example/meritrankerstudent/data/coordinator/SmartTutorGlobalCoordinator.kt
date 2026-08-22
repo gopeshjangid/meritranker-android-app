@@ -29,9 +29,9 @@ data class NormalTurnTask(
  * smartTutorBusy = anyNormalTutorRequestIsActive OR anyTrackedAssessmentGenerationIsActive
  */
 class SmartTutorGlobalCoordinator(
-    private val context: Context,
-    private val practiceCoordinator: PracticeGenerationCoordinator = PracticeGenerationCoordinator.getInstance(context),
-    private val notificationManager: PracticeNotificationManager = PracticeNotificationManager.getInstance(context),
+    private val context: Context? = null,
+    private val practiceCoordinator: PracticeGenerationCoordinator? = context?.let { PracticeGenerationCoordinator.getInstance(it) },
+    private val notificationManager: PracticeNotificationManager? = context?.let { PracticeNotificationManager.getInstance(it) },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 ) {
     companion object {
@@ -42,7 +42,11 @@ class SmartTutorGlobalCoordinator(
 
         fun getInstance(context: Context): SmartTutorGlobalCoordinator {
             return instance ?: synchronized(this) {
-                instance ?: SmartTutorGlobalCoordinator(context.applicationContext).also { instance = it }
+                instance ?: SmartTutorGlobalCoordinator(
+                    context = context.applicationContext,
+                    practiceCoordinator = PracticeGenerationCoordinator.getInstance(context.applicationContext),
+                    notificationManager = PracticeNotificationManager.getInstance(context.applicationContext)
+                ).also { instance = it }
             }
         }
     }
@@ -67,9 +71,10 @@ class SmartTutorGlobalCoordinator(
     init {
         // Combine normal turns count and practice coordinator active count
         scope.launch {
+            val practiceFlow = practiceCoordinator?.activeCount ?: flowOf(0)
             combine(
                 _activeNormalTurns,
-                practiceCoordinator.activeCount
+                practiceFlow
             ) { normalTurns, practiceCount ->
                 val normalCount = normalTurns.size
                 val total = normalCount + practiceCount
@@ -131,7 +136,7 @@ class SmartTutorGlobalCoordinator(
         if (isSuccess) {
             val isVisible = isConversationVisible(conversationId)
             if (!isVisible) {
-                notificationManager.notifyDoubtAnswerReady(conversationId, turnId)
+                notificationManager?.notifyDoubtAnswerReady(conversationId, turnId)
             } else {
                 Log.d(TAG, "DOUBT_NOTIFICATION_SUPPRESSED reason=VISIBLE_IN_TUTOR conversationId=$conversationId")
                 AppObservability.analytics.logEvent(

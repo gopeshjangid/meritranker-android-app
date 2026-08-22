@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.meritrankerstudent.data.repository.DefaultPracticeRepository
 import com.example.meritrankerstudent.ui.components.richtext.EducationalContentRenderer
+import com.example.meritrankerstudent.ui.components.richtext.EducationalInlineText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,14 +173,23 @@ fun PracticeReviewScreen(
                                             modifier = Modifier.padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            val optColor = if (isCorrect) {
+                                                if (isDark) com.example.meritrankerstudent.theme.MeritRankerColors.SuccessLight else com.example.meritrankerstudent.theme.MeritRankerColors.SuccessDark
+                                            } else if (isUserChoice) {
+                                                if (isDark) com.example.meritrankerstudent.theme.MeritRankerColors.ErrorLight else com.example.meritrankerstudent.theme.MeritRankerColors.ErrorDark
+                                            } else MaterialTheme.colorScheme.onSurface
+
                                             Text(
-                                                text = "${(optIdx + 65).toChar()}.  $optText",
+                                                text = "${(optIdx + 65).toChar()}.",
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = if (isCorrect) {
-                                                    if (isDark) com.example.meritrankerstudent.theme.MeritRankerColors.SuccessLight else com.example.meritrankerstudent.theme.MeritRankerColors.SuccessDark
-                                                } else if (isUserChoice) {
-                                                    if (isDark) com.example.meritrankerstudent.theme.MeritRankerColors.ErrorLight else com.example.meritrankerstudent.theme.MeritRankerColors.ErrorDark
-                                                } else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.Bold,
+                                                color = optColor
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            EducationalInlineText(
+                                                text = optText,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = optColor,
                                                 modifier = Modifier.weight(1f)
                                             )
                                             if (isCorrect) {

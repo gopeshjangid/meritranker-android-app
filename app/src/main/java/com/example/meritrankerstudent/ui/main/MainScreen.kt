@@ -39,6 +39,13 @@ fun MainScreen(
 ) {
     val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val globalCoordinator = androidx.compose.runtime.remember { com.example.meritrankerstudent.data.coordinator.SmartTutorGlobalCoordinator.getInstance(context) }
+    val coordinator = androidx.compose.runtime.remember { com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context) }
+    val isGlobalBusy by globalCoordinator.isGlobalBusy.collectAsStateWithLifecycle()
+    val totalActiveCount by globalCoordinator.totalActiveCount.collectAsStateWithLifecycle()
+    val latestReady by coordinator.latestReadyTask.collectAsStateWithLifecycle()
+
     androidx.compose.runtime.LaunchedEffect(currentTab) {
         val canonical = when (currentTab) {
             com.example.meritrankerstudent.ui.main.MainTab.DOUBT -> com.example.meritrankerstudent.observability.CanonicalScreen.SMART_TUTOR
@@ -48,13 +55,9 @@ fun MainScreen(
         }
         com.example.meritrankerstudent.observability.AppObservability.analytics.setScreen(canonical)
         com.example.meritrankerstudent.observability.AppObservability.crashReporter.setScreen(canonical)
+        globalCoordinator.updateScreenVisibility(currentTab.name, askDoubtViewModel.uiState.value.activeConversationId)
     }
     val isImeVisible = WindowInsets.isImeVisible
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val coordinator = androidx.compose.runtime.remember { com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context) }
-    val activeCount by coordinator.activeCount.collectAsStateWithLifecycle()
-    val latestReady by coordinator.latestReadyTask.collectAsStateWithLifecycle()
 
     Scaffold(
         bottomBar = {
@@ -78,8 +81,9 @@ fun MainScreen(
                             onClick = { viewModel.selectTab(MainTab.DOUBT) },
                             icon = {
                                 SmartTutorNavIcon(
-                                    activeCount = activeCount,
-                                    isReady = latestReady != null,
+                                    isBusy = isGlobalBusy,
+                                    activeCount = totalActiveCount,
+                                    isReady = latestReady != null && !isGlobalBusy,
                                     isSelected = currentTab == MainTab.DOUBT
                                 )
                             },

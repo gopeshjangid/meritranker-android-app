@@ -75,7 +75,8 @@ class AskDoubtViewModel(
     private val authRepository: AuthRepository = DefaultAuthRepository(),
     private val userProfileRepository: UserProfileRepository = DefaultUserProfileRepository(),
     private val examProfileRepository: com.example.meritrankerstudent.data.repository.ExamProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository(),
-    private val practiceGenerationCoordinator: PracticeGenerationCoordinator? = null
+    private val practiceGenerationCoordinator: PracticeGenerationCoordinator? = null,
+    private val globalCoordinator: com.example.meritrankerstudent.data.coordinator.SmartTutorGlobalCoordinator? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoubtUiState())
@@ -100,6 +101,7 @@ class AskDoubtViewModel(
             _uiState.update { it.copy(userId = currentUserId) }
 
             repository.setActiveConversation(_uiState.value.activeConversationId)
+            globalCoordinator?.updateScreenVisibility("DOUBT", _uiState.value.activeConversationId)
 
             repository.sessions.collect { sessionList ->
                 _uiState.update { it.copy(sessions = sessionList, isLoadingSessions = false) }
@@ -245,12 +247,14 @@ class AskDoubtViewModel(
 
     fun startNewChat(context: android.content.Context? = null) {
         activeStreamJob?.cancel()
+        globalCoordinator?.markNormalTurnCancelled(_uiState.value.currentTurnId)
         voiceBaseText = ""
         voiceAccumulatedText = ""
         val newConvId = UUID.randomUUID().toString()
         val newTurnId = UUID.randomUUID().toString()
 
         repository.setActiveConversation(newConvId)
+        globalCoordinator?.updateScreenVisibility("DOUBT", newConvId)
         android.util.Log.d("MeritRankerChat", "NEW_CHAT_REQUESTED newConvId=$newConvId")
 
         val newSuggestions = if (context != null) {
@@ -293,9 +297,11 @@ class AskDoubtViewModel(
         }
 
         activeStreamJob?.cancel()
+        globalCoordinator?.markNormalTurnCancelled(_uiState.value.currentTurnId)
         voiceBaseText = ""
         voiceAccumulatedText = ""
         repository.setActiveConversation(conversationId)
+        globalCoordinator?.updateScreenVisibility("DOUBT", conversationId)
         val newTurnId = UUID.randomUUID().toString()
         _uiState.update {
             it.copy(
@@ -697,6 +703,8 @@ class AskDoubtViewModel(
         voiceBaseText = ""
         voiceAccumulatedText = ""
 
+        globalCoordinator?.markNormalTurnStarted(targetConvId, targetTurnId)
+
         com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
             com.example.meritrankerstudent.observability.TelemetryEvent.DoubtSubmitted(
                 examProfileId = state.examProfileId,
@@ -774,6 +782,8 @@ class AskDoubtViewModel(
                         )
                     )
 
+                    globalCoordinator?.markNormalTurnCompleted(targetConvId, targetTurnId, isSuccess = true)
+
                     _uiState.update {
                         it.copy(
                             currentTurnId = UUID.randomUUID().toString(),
@@ -801,6 +811,8 @@ class AskDoubtViewModel(
                     throwable = e
                 )
 
+                globalCoordinator?.markNormalTurnCompleted(targetConvId, targetTurnId, isSuccess = false)
+
                 _uiState.update {
                     it.copy(
                         isSending = false,
@@ -816,6 +828,7 @@ class AskDoubtViewModel(
 
     fun stopGenerating() {
         activeStreamJob?.cancel()
+        globalCoordinator?.markNormalTurnCancelled(_uiState.value.currentTurnId)
         _uiState.update {
             it.copy(
                 isSending = false,

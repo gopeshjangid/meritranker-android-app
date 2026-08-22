@@ -38,10 +38,14 @@ object ContentNormalizer {
             result = result.replace("\\\\$cmd", "\\$cmd")
         }
 
-        // Normalize Unicode minus and multiplication
-        result = result
-            .replace("−", "-")
-            .replace("✕", "×")
+        // Unescape unicode escape sequences \uXXXX and \\uXXXX (e.g. \u2218 -> ∘)
+        result = Regex("""(?:\\\\|\\)u([0-9a-fA-F]{4})""").replace(result) { match ->
+            try {
+                match.groupValues[1].toInt(16).toChar().toString()
+            } catch (_: Exception) {
+                match.value
+            }
+        }
 
         return result
     }

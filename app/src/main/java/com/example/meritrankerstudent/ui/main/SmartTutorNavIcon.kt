@@ -9,7 +9,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +19,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,20 +34,24 @@ import com.example.meritrankerstudent.theme.MeritRankerColors
 
 /**
  * Isolated Bottom Navigation Smart Tutor Icon Composable.
- * Renders an animated gradient ring (BrandBlue -> BrandOrange -> BrandBlue) when assessments
- * are generating, a tiny count badge when multiple generations are active, and a subtle
- * ready check when an assessment is ready.
+ *
+ * Renders:
+ * 1. A thin, slow, smooth rotating ring (BrandOrange / Primary sweep) when Smart Tutor
+ *    has ANY active async operation (Normal Doubt Answer Streaming OR Practice Generation).
+ * 2. A tiny active count badge if multiple async tasks are simultaneously running.
+ * 3. A subtle green ready checkmark badge when practice/mock is ready to play.
+ *
+ * Isolated to prevent unnecessary recomposition of parent navigation items or active screens.
  */
 @Composable
 fun SmartTutorNavIcon(
+    isBusy: Boolean,
     activeCount: Int,
     isReady: Boolean,
     isSelected: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val isGenerating = activeCount > 0 && !isReady
-
-    val angle by if (isGenerating) {
+    val angle by if (isBusy) {
         val infiniteTransition = rememberInfiniteTransition(label = "smartTutorNavRing")
         infiniteTransition.animateFloat(
             initialValue = 0f,
@@ -58,15 +63,15 @@ fun SmartTutorNavIcon(
             label = "ringRotation"
         )
     } else {
-        androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+        remember { mutableFloatStateOf(0f) }
     }
 
     Box(
         modifier = modifier.size(34.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Rotating gradient border ring during generation
-        if (isGenerating) {
+        // Rotating gradient border ring during any asynchronous Smart Tutor work
+        if (isBusy) {
             val ringBrush = Brush.sweepGradient(
                 listOf(
                     MeritRankerColors.BrandOrange,
@@ -89,8 +94,8 @@ fun SmartTutorNavIcon(
             modifier = Modifier.size(22.dp)
         )
 
-        // Multiple active count badge
-        if (activeCount > 1 && isGenerating) {
+        // Multiple active tasks count badge
+        if (activeCount > 1 && isBusy) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -109,8 +114,8 @@ fun SmartTutorNavIcon(
             }
         }
 
-        // Ready indicator badge
-        if (isReady) {
+        // Ready indicator badge (shown only when not currently generating new work)
+        if (isReady && !isBusy) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)

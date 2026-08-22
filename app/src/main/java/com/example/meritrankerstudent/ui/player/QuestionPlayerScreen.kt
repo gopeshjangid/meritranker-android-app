@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.navigation3.runtime.NavKey
 import com.example.meritrankerstudent.ResultFeedback
 import com.example.meritrankerstudent.data.repository.DefaultPracticeRepository
 import com.example.meritrankerstudent.ui.components.richtext.EducationalContentRenderer
+import com.example.meritrankerstudent.ui.components.richtext.EducationalInlineText
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,13 +124,22 @@ fun QuestionPlayerScreen(
             val selectedOptionText = uiState.selectedOptions[questionId]
             val isLocked = uiState.lockedQuestions[questionId] == true
             val feedback = uiState.feedback[questionId]
+            val scrollState = rememberScrollState()
+
+            // Smooth solution reveal auto-scroll: bounds to explanation card when feedback appears
+            LaunchedEffect(uiState.currentIndex, feedback != null) {
+                if (feedback != null) {
+                    kotlinx.coroutines.delay(120)
+                    scrollState.animateScrollTo(scrollState.maxValue)
+                }
+            }
 
             Column(
                 modifier = modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -146,12 +157,18 @@ fun QuestionPlayerScreen(
                     )
 
                     question.subject?.let { sub ->
-                        Text(
-                            text = "Subject: $sub",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = sub,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
 
@@ -241,7 +258,14 @@ fun QuestionPlayerScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "${(optIdx + 65).toChar()}.  $optionText",
+                                    text = "${(optIdx + 65).toChar()}.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                EducationalInlineText(
+                                    text = optionText,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                     color = textColor,
@@ -370,7 +394,8 @@ fun QuestionPlayerScreen(
                                             score = result.score.toInt(),
                                             total = result.maximumScore.toInt(),
                                             mode = mode,
-                                            id = id
+                                            id = id,
+                                            attemptId = result.attemptId
                                         )
                                     )
                                 }

@@ -19,6 +19,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.meritrankerstudent.ui.auth.*
 import com.example.meritrankerstudent.ui.main.MainScreen
+import com.example.meritrankerstudent.ui.main.MainTab
 import com.example.meritrankerstudent.ui.profile.ProfileSettingsScreen
 import com.example.meritrankerstudent.ui.practice.GuidedPracticeDetailScreen
 import com.example.meritrankerstudent.ui.practice.QuizListScreen
@@ -36,7 +37,10 @@ import com.example.meritrankerstudent.ui.doubt.ConversationHistoryScreen
 @Composable
 fun MainNavigation(
     authViewModel: AuthViewModel = viewModel(),
-    initialNavKey: NavKey? = null
+    initialNavKey: NavKey? = null,
+    pendingTab: com.example.meritrankerstudent.ui.main.MainTab? = null,
+    pendingConversationId: String? = null,
+    onHandledPendingIntent: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val askDoubtViewModel: AskDoubtViewModel = viewModel {
@@ -45,9 +49,11 @@ fun MainNavigation(
             authRepository = com.example.meritrankerstudent.data.repository.DefaultAuthRepository(),
             userProfileRepository = com.example.meritrankerstudent.data.repository.DefaultUserProfileRepository(),
             examProfileRepository = com.example.meritrankerstudent.data.repository.DefaultExamProfileRepository(),
-            practiceGenerationCoordinator = com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context)
+            practiceGenerationCoordinator = com.example.meritrankerstudent.data.coordinator.PracticeGenerationCoordinator.getInstance(context),
+            globalCoordinator = com.example.meritrankerstudent.data.coordinator.SmartTutorGlobalCoordinator.getInstance(context)
         )
     }
+    val mainScreenViewModel: com.example.meritrankerstudent.ui.main.MainScreenViewModel = viewModel()
     val sessionState by authViewModel.sessionState.collectAsStateWithLifecycle()
 
     when (val state = sessionState) {
@@ -115,6 +121,29 @@ fun MainNavigation(
                 rememberNavBackStack(Main)
             }
 
+            androidx.compose.runtime.LaunchedEffect(initialNavKey) {
+                if (initialNavKey != null) {
+                    if (backStack.lastOrNull() != initialNavKey) {
+                        backStack.add(initialNavKey)
+                    }
+                    onHandledPendingIntent()
+                }
+            }
+
+            androidx.compose.runtime.LaunchedEffect(pendingTab) {
+                if (pendingTab != null) {
+                    mainScreenViewModel.selectTab(pendingTab)
+                    onHandledPendingIntent()
+                }
+            }
+
+            androidx.compose.runtime.LaunchedEffect(pendingConversationId) {
+                if (!pendingConversationId.isNullOrEmpty()) {
+                    askDoubtViewModel.selectConversation(pendingConversationId)
+                    onHandledPendingIntent()
+                }
+            }
+
             androidx.compose.runtime.LaunchedEffect(backStack.lastOrNull()) {
                 val key = backStack.lastOrNull() ?: return@LaunchedEffect
                 val canonical = when (key) {
@@ -144,6 +173,7 @@ fun MainNavigation(
                         MainScreen(
                             onItemClick = { navKey -> backStack.add(navKey) },
                             modifier = Modifier.safeDrawingPadding(),
+                            viewModel = mainScreenViewModel,
                             askDoubtViewModel = askDoubtViewModel
                         )
                     }
@@ -209,9 +239,15 @@ fun MainNavigation(
                         QuestionPlayerScreen(
                             mode = key.mode,
                             id = key.id,
-                            onBack = { backStack.removeLastOrNull() },
+                            onBack = {
+                                if (backStack.size > 1) {
+                                    backStack.removeLastOrNull()
+                                }
+                            },
                             onFinish = { resultKey ->
-                                backStack.removeLastOrNull()
+                                if (backStack.isNotEmpty()) {
+                                    backStack.removeLastOrNull()
+                                }
                                 backStack.add(resultKey)
                             }
                         )
@@ -224,11 +260,17 @@ fun MainNavigation(
                             mode = key.mode,
                             id = key.id,
                             onHomeClick = {
-                                backStack.removeLastOrNull()
-                                backStack.removeLastOrNull()
+                                while (backStack.size > 1) {
+                                    backStack.removeLastOrNull()
+                                }
+                                if (backStack.isEmpty()) {
+                                    backStack.add(Main)
+                                }
+                                mainScreenViewModel.selectTab(MainTab.PRACTICE)
                             },
                             onReviewClick = {
-                                backStack.add(PracticeReview(attemptId = key.id, activityId = key.id))
+                                val effAttemptId = key.attemptId.ifEmpty { key.id }
+                                backStack.add(PracticeReview(attemptId = effAttemptId, activityId = key.id))
                             }
                         )
                     }
@@ -237,7 +279,11 @@ fun MainNavigation(
                         com.example.meritrankerstudent.ui.player.PracticeReviewScreen(
                             attemptId = key.attemptId,
                             activityId = key.activityId,
-                            onBack = { backStack.removeLastOrNull() }
+                            onBack = {
+                                if (backStack.size > 1) {
+                                    backStack.removeLastOrNull()
+                                }
+                            }
                         )
                     }
 

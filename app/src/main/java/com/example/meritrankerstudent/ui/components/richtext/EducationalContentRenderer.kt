@@ -302,7 +302,20 @@ object MarkdownDocumentParser {
      * Safety pass to normalize stray TeX macros that might appear in plain text.
      */
     private fun cleanStrayLatexMacros(input: String): String {
-        return input
+        var str = input
+        if (str.contains("\\frac") || str.contains("\\sqrt") || str.contains("^") || str.contains("_")) {
+            str = formatMathExpression(str)
+        }
+        return str
+            .replace("\\infty", "∞")
+            .replace("\\subseteq", "⊆")
+            .replace("\\supseteq", "⊇")
+            .replace("\\subset", "⊂")
+            .replace("\\supset", "⊃")
+            .replace("\\notin", "∉")
+            .replace("\\in", "∈")
+            .replace("\\cup", "∪")
+            .replace("\\cap", "∩")
             .replace("\\implies", "⟹")
             .replace("\\iff", "⟺")
             .replace("\\therefore", "∴")
@@ -324,11 +337,22 @@ object MarkdownDocumentParser {
             .replace("\\le", "≤")
             .replace("\\geq", "≥")
             .replace("\\ge", "≥")
-            .replace("\\infty", "∞")
             .replace("\\rightarrow", "→")
             .replace("\\to", "→")
             .replace("\\leftarrow", "←")
             .replace("\\degree", "°")
+            .replace("\\theta", "θ")
+            .replace("\\alpha", "α")
+            .replace("\\beta", "β")
+            .replace("\\gamma", "γ")
+            .replace("\\pi", "π")
+            .replace("\\Delta", "Δ")
+            .replace("\\delta", "δ")
+            .replace("\\lambda", "λ")
+            .replace("\\mu", "μ")
+            .replace("\\sigma", "σ")
+            .replace("\\omega", "ω")
+            .replace("\\phi", "ϕ")
             .replace("\\%", "%")
             .replace("\\(", "")
             .replace("\\)", "")
@@ -336,6 +360,37 @@ object MarkdownDocumentParser {
             .replace(Regex("\\\\mathrm\\{([^}]+)\\}")) { it.groupValues[1] }
             .replace(Regex("\\\\mathbf\\{([^}]+)\\}")) { it.groupValues[1] }
     }
+}
+
+@Composable
+fun EducationalInlineText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    fontWeight: FontWeight? = null,
+    lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified
+) {
+    val spans = remember(text) {
+        val normalized = ContentNormalizer.normalize(text)
+        MarkdownDocumentParser.parseInlineSpans(normalized)
+    }
+    val mathColor = if (color != Color.Unspecified) color else MaterialTheme.colorScheme.onSurface
+    val mathBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    val chemColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF34D399) else Color(0xFF059669)
+    val chemBgColor = chemColor.copy(alpha = 0.12f)
+
+    Text(
+        text = buildInlineAnnotatedString(
+            spans = spans,
+            mathColor = mathColor,
+            mathBgColor = mathBgColor,
+            chemColor = chemColor,
+            chemBgColor = chemBgColor
+        ),
+        modifier = modifier,
+        style = if (fontWeight != null) style.copy(fontWeight = fontWeight, color = color, lineHeight = lineHeight) else style.copy(color = color, lineHeight = lineHeight)
+    )
 }
 
 @Composable
