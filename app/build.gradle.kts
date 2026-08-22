@@ -15,7 +15,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://10.0.2.2:3000\"")
+        buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://127.0.0.1:8080\"")
         buildConfigField("boolean", "ENABLE_DEBUG_TELEMETRY", project.findProperty("enableDebugTelemetry")?.toString() ?: "false")
     }
 
@@ -47,7 +47,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://10.0.2.2:3000\"")
+            buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://127.0.0.1:8080\"")
         }
         release {
             isMinifyEnabled = false

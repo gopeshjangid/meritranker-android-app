@@ -822,6 +822,14 @@ class AskDoubtViewModel(
                         sendError = "Couldn't send your doubt. Tap retry to attempt again."
                     )
                 }
+            } finally {
+                _uiState.update {
+                    it.copy(
+                        isSending = false,
+                        isStreaming = false,
+                        isAiThinking = false
+                    )
+                }
             }
         }
     }
@@ -841,8 +849,8 @@ class AskDoubtViewModel(
     fun retrySendMessage() {
         val lastMsg = _uiState.value.messages.lastOrNull { it.sender == "USER" }
         if (lastMsg != null) {
-            _uiState.update { it.copy(inputText = lastMsg.text, selectedAttachmentUri = lastMsg.imageUri) }
-            sendMessage()
+            _uiState.update { it.copy(selectedAttachmentUri = lastMsg.imageUri) }
+            sendMessage(explicitQuery = lastMsg.text)
         }
     }
 
