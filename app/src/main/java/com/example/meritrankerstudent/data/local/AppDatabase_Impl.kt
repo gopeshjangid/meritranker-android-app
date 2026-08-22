@@ -22,7 +22,7 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
 
     private val tableChangeNotifier = MutableSharedFlow<String>(extraBufferCapacity = 64)
 
-    private class DatabaseOpenHelper(context: Context) : SQLiteOpenHelper(context, "meritranker_cache.db", null, 2) {
+    private class DatabaseOpenHelper(context: Context) : SQLiteOpenHelper(context, "meritranker_cache.db", null, 3) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS cached_profiles (
@@ -182,6 +182,32 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
                 )
             """.trimIndent())
             db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_metadata_ownerUserId_resourceType ON sync_metadata (ownerUserId, resourceType)")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS purchase_transactions (
+                    transactionId TEXT PRIMARY KEY NOT NULL,
+                    userId TEXT NOT NULL,
+                    orderId TEXT,
+                    purchaseToken TEXT NOT NULL,
+                    productId TEXT NOT NULL,
+                    productTitle TEXT NOT NULL,
+                    productType TEXT NOT NULL,
+                    purchaseTime INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    isAcknowledged INTEGER NOT NULL DEFAULT 0,
+                    isSyncedWithBackend INTEGER NOT NULL DEFAULT 0,
+                    responseCode INTEGER NOT NULL DEFAULT 0,
+                    errorMessage TEXT,
+                    rawJsonPayload TEXT,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_userId ON purchase_transactions (userId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_purchaseToken ON purchase_transactions (purchaseToken)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_status ON purchase_transactions (status)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_isSyncedWithBackend ON purchase_transactions (isSyncedWithBackend)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_createdAt ON purchase_transactions (createdAt)")
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -291,6 +317,34 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
                     )
                 """.trimIndent())
             }
+
+            if (oldVersion < 3) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS purchase_transactions (
+                        transactionId TEXT PRIMARY KEY NOT NULL,
+                        userId TEXT NOT NULL,
+                        orderId TEXT,
+                        purchaseToken TEXT NOT NULL,
+                        productId TEXT NOT NULL,
+                        productTitle TEXT NOT NULL,
+                        productType TEXT NOT NULL,
+                        purchaseTime INTEGER NOT NULL,
+                        status TEXT NOT NULL,
+                        isAcknowledged INTEGER NOT NULL DEFAULT 0,
+                        isSyncedWithBackend INTEGER NOT NULL DEFAULT 0,
+                        responseCode INTEGER NOT NULL DEFAULT 0,
+                        errorMessage TEXT,
+                        rawJsonPayload TEXT,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_userId ON purchase_transactions (userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_purchaseToken ON purchase_transactions (purchaseToken)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_status ON purchase_transactions (status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_isSyncedWithBackend ON purchase_transactions (isSyncedWithBackend)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_transactions_createdAt ON purchase_transactions (createdAt)")
+            }
         }
     }
 
@@ -300,7 +354,7 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
 
     @android.annotation.SuppressLint("RestrictedApi")
     override fun createInvalidationTracker(): InvalidationTracker {
-        return InvalidationTracker(this, "cached_profiles", "conversation_sessions", "conversation_turns", "chat_drafts", "cached_exam_profiles", "cached_practice_activities", "cached_practice_questions", "cached_student_performance", "sync_metadata")
+        return InvalidationTracker(this, "cached_profiles", "conversation_sessions", "conversation_turns", "chat_drafts", "cached_exam_profiles", "cached_practice_activities", "cached_practice_questions", "cached_student_performance", "sync_metadata", "purchase_transactions")
     }
 
     override fun createOpenHelper(config: DatabaseConfiguration): SupportSQLiteOpenHelper {
@@ -308,7 +362,7 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
     }
 
     override fun clearAllTables() {
-        val tables = listOf("cached_profiles", "conversation_sessions", "conversation_turns", "chat_drafts", "cached_exam_profiles", "cached_practice_activities", "cached_practice_questions", "cached_student_performance", "sync_metadata")
+        val tables = listOf("cached_profiles", "conversation_sessions", "conversation_turns", "chat_drafts", "cached_exam_profiles", "cached_practice_activities", "cached_practice_questions", "cached_student_performance", "sync_metadata", "purchase_transactions")
         db.beginTransaction()
         try {
             for (t in tables) {
@@ -1022,6 +1076,164 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
         }
     }
 
+    private val purchaseTransactionDaoImpl = object : PurchaseTransactionDao {
+        override fun getTransaction(transactionId: String): Flow<PurchaseTransactionEntity?> = flow {
+            emit(getTransactionSync(transactionId))
+            tableChangeNotifier.collect { if (it == "purchase_transactions") emit(getTransactionSync(transactionId)) }
+        }.flowOn(Dispatchers.IO)
+
+        override suspend fun getTransactionSync(transactionId: String): PurchaseTransactionEntity? = withContext(Dispatchers.IO) {
+            val cursor = db.rawQuery("SELECT * FROM purchase_transactions WHERE transactionId = ? LIMIT 1", arrayOf(transactionId))
+            cursor.use {
+                if (it.moveToFirst()) mapPurchaseTransaction(it) else null
+            }
+        }
+
+        override fun getTransactionsByUser(userId: String): Flow<List<PurchaseTransactionEntity>> = flow {
+            emit(getTransactionsByUserSync(userId))
+            tableChangeNotifier.collect { if (it == "purchase_transactions") emit(getTransactionsByUserSync(userId)) }
+        }.flowOn(Dispatchers.IO)
+
+        override suspend fun getTransactionsByUserSync(userId: String): List<PurchaseTransactionEntity> = withContext(Dispatchers.IO) {
+            val list = mutableListOf<PurchaseTransactionEntity>()
+            val cursor = db.rawQuery("SELECT * FROM purchase_transactions WHERE userId = ? ORDER BY purchaseTime DESC", arrayOf(userId))
+            cursor.use {
+                while (it.moveToNext()) {
+                    list.add(mapPurchaseTransaction(it))
+                }
+            }
+            list
+        }
+
+        override fun getActiveSubscription(userId: String): Flow<PurchaseTransactionEntity?> = flow {
+            emit(getActiveSubscriptionSync(userId))
+            tableChangeNotifier.collect { if (it == "purchase_transactions") emit(getActiveSubscriptionSync(userId)) }
+        }.flowOn(Dispatchers.IO)
+
+        override suspend fun getActiveSubscriptionSync(userId: String): PurchaseTransactionEntity? = withContext(Dispatchers.IO) {
+            val cursor = db.rawQuery(
+                "SELECT * FROM purchase_transactions WHERE userId = ? AND productType = 'SUBSCRIPTION' AND status = 'PURCHASED' ORDER BY purchaseTime DESC LIMIT 1",
+                arrayOf(userId)
+            )
+            cursor.use {
+                if (it.moveToFirst()) mapPurchaseTransaction(it) else null
+            }
+        }
+
+        override suspend fun getUnsyncedTransactions(userId: String): List<PurchaseTransactionEntity> = withContext(Dispatchers.IO) {
+            val list = mutableListOf<PurchaseTransactionEntity>()
+            val cursor = db.rawQuery(
+                "SELECT * FROM purchase_transactions WHERE userId = ? AND isSyncedWithBackend = 0 ORDER BY purchaseTime ASC",
+                arrayOf(userId)
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    list.add(mapPurchaseTransaction(it))
+                }
+            }
+            list
+        }
+
+        override suspend fun upsertTransaction(transaction: PurchaseTransactionEntity) = withContext(Dispatchers.IO) {
+            val values = ContentValues().apply {
+                put("transactionId", transaction.transactionId)
+                put("userId", transaction.userId)
+                put("orderId", transaction.orderId)
+                put("purchaseToken", transaction.purchaseToken)
+                put("productId", transaction.productId)
+                put("productTitle", transaction.productTitle)
+                put("productType", transaction.productType)
+                put("purchaseTime", transaction.purchaseTime)
+                put("status", transaction.status)
+                put("isAcknowledged", if (transaction.isAcknowledged) 1 else 0)
+                put("isSyncedWithBackend", if (transaction.isSyncedWithBackend) 1 else 0)
+                put("responseCode", transaction.responseCode)
+                put("errorMessage", transaction.errorMessage)
+                put("rawJsonPayload", transaction.rawJsonPayload)
+                put("createdAt", transaction.createdAt)
+                put("updatedAt", transaction.updatedAt)
+            }
+            db.insertWithOnConflict("purchase_transactions", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            notifyTableChanged("purchase_transactions")
+            Unit
+        }
+
+        override suspend fun upsertTransactions(transactions: List<PurchaseTransactionEntity>) = withContext(Dispatchers.IO) {
+            db.beginTransaction()
+            try {
+                for (transaction in transactions) {
+                    val values = ContentValues().apply {
+                        put("transactionId", transaction.transactionId)
+                        put("userId", transaction.userId)
+                        put("orderId", transaction.orderId)
+                        put("purchaseToken", transaction.purchaseToken)
+                        put("productId", transaction.productId)
+                        put("productTitle", transaction.productTitle)
+                        put("productType", transaction.productType)
+                        put("purchaseTime", transaction.purchaseTime)
+                        put("status", transaction.status)
+                        put("isAcknowledged", if (transaction.isAcknowledged) 1 else 0)
+                        put("isSyncedWithBackend", if (transaction.isSyncedWithBackend) 1 else 0)
+                        put("responseCode", transaction.responseCode)
+                        put("errorMessage", transaction.errorMessage)
+                        put("rawJsonPayload", transaction.rawJsonPayload)
+                        put("createdAt", transaction.createdAt)
+                        put("updatedAt", transaction.updatedAt)
+                    }
+                    db.insertWithOnConflict("purchase_transactions", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+            notifyTableChanged("purchase_transactions")
+            Unit
+        }
+
+        override suspend fun markAsSynced(transactionId: String, updatedAt: Long) = withContext(Dispatchers.IO) {
+            val values = ContentValues().apply {
+                put("isSyncedWithBackend", 1)
+                put("updatedAt", updatedAt)
+            }
+            db.update("purchase_transactions", values, "transactionId = ?", arrayOf(transactionId))
+            notifyTableChanged("purchase_transactions")
+            Unit
+        }
+
+        override suspend fun deleteTransactionsByUser(userId: String) = withContext(Dispatchers.IO) {
+            db.delete("purchase_transactions", "userId = ?", arrayOf(userId))
+            notifyTableChanged("purchase_transactions")
+            Unit
+        }
+
+        override suspend fun clearAllTransactions() = withContext(Dispatchers.IO) {
+            db.delete("purchase_transactions", null, null)
+            notifyTableChanged("purchase_transactions")
+            Unit
+        }
+
+        private fun mapPurchaseTransaction(cursor: Cursor): PurchaseTransactionEntity {
+            return PurchaseTransactionEntity(
+                transactionId = cursor.getString(cursor.getColumnIndexOrThrow("transactionId")),
+                userId = cursor.getString(cursor.getColumnIndexOrThrow("userId")),
+                orderId = cursor.getStringOrNull("orderId"),
+                purchaseToken = cursor.getString(cursor.getColumnIndexOrThrow("purchaseToken")),
+                productId = cursor.getString(cursor.getColumnIndexOrThrow("productId")),
+                productTitle = cursor.getString(cursor.getColumnIndexOrThrow("productTitle")),
+                productType = cursor.getString(cursor.getColumnIndexOrThrow("productType")),
+                purchaseTime = cursor.getLong(cursor.getColumnIndexOrThrow("purchaseTime")),
+                status = cursor.getString(cursor.getColumnIndexOrThrow("status")),
+                isAcknowledged = cursor.getInt(cursor.getColumnIndexOrThrow("isAcknowledged")) == 1,
+                isSyncedWithBackend = cursor.getInt(cursor.getColumnIndexOrThrow("isSyncedWithBackend")) == 1,
+                responseCode = cursor.getInt(cursor.getColumnIndexOrThrow("responseCode")),
+                errorMessage = cursor.getStringOrNull("errorMessage"),
+                rawJsonPayload = cursor.getStringOrNull("rawJsonPayload"),
+                createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("createdAt")),
+                updatedAt = cursor.getLong(cursor.getColumnIndexOrThrow("updatedAt"))
+            )
+        }
+    }
+
     override fun profileDao(): ProfileDao = profileDaoImpl
     override fun examProfileDao(): ExamProfileDao = examProfileDaoImpl
     override fun practiceDao(): PracticeDao = practiceDaoImpl
@@ -1029,6 +1241,7 @@ class AppDatabase_Impl(context: Context) : AppDatabase() {
     override fun conversationDao(): ConversationDao = conversationDaoImpl
     override fun draftDao(): DraftDao = draftDaoImpl
     override fun syncMetadataDao(): SyncMetadataDao = syncMetadataDaoImpl
+    override fun purchaseTransactionDao(): PurchaseTransactionDao = purchaseTransactionDaoImpl
 
     companion object {
         @Volatile

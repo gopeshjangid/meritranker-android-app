@@ -17,9 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ConversationSessionEntity::class,
         ConversationTurnEntity::class,
         ChatDraftEntity::class,
-        SyncMetadataEntity::class
+        SyncMetadataEntity::class,
+        PurchaseTransactionEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun draftDao(): DraftDao
     abstract fun syncMetadataDao(): SyncMetadataDao
+    abstract fun purchaseTransactionDao(): PurchaseTransactionDao
 
     suspend fun clearUserCache(userId: String) {
         // Purge USER-PRIVATE data only, retain shared ExamProfile catalog

@@ -37,19 +37,29 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import com.example.meritrankerstudent.ui.subscription.SubscriptionPlanSheet
+import com.example.meritrankerstudent.ui.subscription.PurchaseReceiptsSheet
+import com.example.meritrankerstudent.ui.subscription.SubscriptionViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    subscriptionViewModel: SubscriptionViewModel = viewModel()
 ) {
     val uiState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val activeSubscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showExamBottomSheet by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showFeedbackBottomSheet by remember { mutableStateOf(false) }
+    var showSubscriptionSheet by remember { mutableStateOf(false) }
+    var showReceiptsSheet by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -270,6 +280,105 @@ fun ProfileSettingsScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
+                            }
+                        }
+
+                        // ==================== MEMBERSHIP & SUBSCRIPTIONS CARD ====================
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(
+                                width = if (activeSubscription != null) 1.5.dp else 1.dp,
+                                color = if (activeSubscription != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Membership & Plan",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+
+                                    Surface(
+                                        color = if (activeSubscription != null)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = if (activeSubscription != null) "PRO ACTIVE" else "FREE TIER",
+                                            color = if (activeSubscription != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = if (activeSubscription != null)
+                                        "You have full access to Unlimited AI Smart Tutor, AI Mock Tests, Detailed Solutions & Analytics."
+                                    else
+                                        "Upgrade to MeritRanker Pro for unlimited AI doubt solving, full mock tests & step-by-step solutions.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { showSubscriptionSheet = true },
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (activeSubscription != null) "Manage Plan" else "Upgrade to Pro",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { showReceiptsSheet = true },
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Receipts")
+                                    }
                                 }
                             }
                         }
@@ -823,6 +932,22 @@ fun ProfileSettingsScreen(
                             onPrimaryProfileSelected = { profileViewModel.onPrimaryExamProfileChanged(it) },
                             onToggleAdditional = { profileViewModel.onToggleAdditionalExam(it) },
                             onDismiss = { showExamBottomSheet = false }
+                        )
+                    }
+
+                    // MeritRanker Pro Subscription Plan Modal Bottom Sheet
+                    if (showSubscriptionSheet) {
+                        SubscriptionPlanSheet(
+                            viewModel = subscriptionViewModel,
+                            onDismiss = { showSubscriptionSheet = false }
+                        )
+                    }
+
+                    // Purchase History & Receipts Modal Bottom Sheet
+                    if (showReceiptsSheet) {
+                        PurchaseReceiptsSheet(
+                            viewModel = subscriptionViewModel,
+                            onDismiss = { showReceiptsSheet = false }
                         )
                     }
                 }

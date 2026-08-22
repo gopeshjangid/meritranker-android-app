@@ -197,3 +197,43 @@ interface SyncMetadataDao {
     @Query("DELETE FROM sync_metadata")
     suspend fun clearAllMetadata()
 }
+
+@Dao
+interface PurchaseTransactionDao {
+    @Query("SELECT * FROM purchase_transactions WHERE transactionId = :transactionId LIMIT 1")
+    fun getTransaction(transactionId: String): Flow<PurchaseTransactionEntity?>
+
+    @Query("SELECT * FROM purchase_transactions WHERE transactionId = :transactionId LIMIT 1")
+    suspend fun getTransactionSync(transactionId: String): PurchaseTransactionEntity?
+
+    @Query("SELECT * FROM purchase_transactions WHERE userId = :userId ORDER BY purchaseTime DESC")
+    fun getTransactionsByUser(userId: String): Flow<List<PurchaseTransactionEntity>>
+
+    @Query("SELECT * FROM purchase_transactions WHERE userId = :userId ORDER BY purchaseTime DESC")
+    suspend fun getTransactionsByUserSync(userId: String): List<PurchaseTransactionEntity>
+
+    @Query("SELECT * FROM purchase_transactions WHERE userId = :userId AND productType = 'SUBSCRIPTION' AND status = 'PURCHASED' ORDER BY purchaseTime DESC LIMIT 1")
+    fun getActiveSubscription(userId: String): Flow<PurchaseTransactionEntity?>
+
+    @Query("SELECT * FROM purchase_transactions WHERE userId = :userId AND productType = 'SUBSCRIPTION' AND status = 'PURCHASED' ORDER BY purchaseTime DESC LIMIT 1")
+    suspend fun getActiveSubscriptionSync(userId: String): PurchaseTransactionEntity?
+
+    @Query("SELECT * FROM purchase_transactions WHERE userId = :userId AND isSyncedWithBackend = 0 ORDER BY purchaseTime ASC")
+    suspend fun getUnsyncedTransactions(userId: String): List<PurchaseTransactionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTransaction(transaction: PurchaseTransactionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTransactions(transactions: List<PurchaseTransactionEntity>)
+
+    @Query("UPDATE purchase_transactions SET isSyncedWithBackend = 1, updatedAt = :updatedAt WHERE transactionId = :transactionId")
+    suspend fun markAsSynced(transactionId: String, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("DELETE FROM purchase_transactions WHERE userId = :userId")
+    suspend fun deleteTransactionsByUser(userId: String)
+
+    @Query("DELETE FROM purchase_transactions")
+    suspend fun clearAllTransactions()
+}
+

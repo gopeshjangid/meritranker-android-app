@@ -442,4 +442,60 @@ object EntityMappers {
             lastProcessedAt = entity.lastProcessedAt
         )
     }
+
+    // PurchaseTransactionRecord <-> PurchaseTransactionEntity
+    fun purchaseTransactionToEntity(record: com.example.meritrankerstudent.data.billing.PurchaseTransactionRecord): PurchaseTransactionEntity {
+        return PurchaseTransactionEntity(
+            transactionId = record.transactionId,
+            userId = record.userId,
+            orderId = record.orderId,
+            purchaseToken = record.purchaseToken,
+            productId = record.productId,
+            productTitle = record.productTitle,
+            productType = record.productType.name,
+            purchaseTime = record.purchaseTime,
+            status = record.status.name,
+            isAcknowledged = record.isAcknowledged,
+            isSyncedWithBackend = record.isSyncedWithBackend,
+            responseCode = record.responseCode,
+            errorMessage = record.errorMessage,
+            rawJsonPayload = record.rawJsonPayload,
+            createdAt = record.createdAt,
+            updatedAt = record.updatedAt
+        )
+    }
+
+    fun entityToPurchaseTransaction(entity: PurchaseTransactionEntity): com.example.meritrankerstudent.data.billing.PurchaseTransactionRecord {
+        val type = try {
+            com.example.meritrankerstudent.data.billing.ProductType.valueOf(entity.productType)
+        } catch (_: Exception) {
+            com.example.meritrankerstudent.data.billing.ProductType.SUBSCRIPTION
+        }
+
+        val status = try {
+            com.example.meritrankerstudent.data.billing.PurchaseTransactionStatus.valueOf(entity.status)
+        } catch (_: Exception) {
+            com.example.meritrankerstudent.data.billing.PurchaseTransactionStatus.ERROR
+        }
+
+        return com.example.meritrankerstudent.data.billing.PurchaseTransactionRecord(
+            transactionId = entity.transactionId,
+            userId = entity.userId,
+            orderId = entity.orderId,
+            purchaseToken = entity.purchaseToken,
+            productId = entity.productId,
+            productTitle = entity.productTitle,
+            productType = type,
+            purchaseTime = entity.purchaseTime,
+            status = status,
+            isAcknowledged = entity.isAcknowledged,
+            isSyncedWithBackend = entity.isSyncedWithBackend,
+            responseCode = entity.responseCode,
+            errorMessage = entity.errorMessage,
+            rawJsonPayload = entity.rawJsonPayload,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt
+        )
+    }
 }
+

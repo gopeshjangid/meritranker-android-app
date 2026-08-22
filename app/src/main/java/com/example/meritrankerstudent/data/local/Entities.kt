@@ -177,3 +177,32 @@ data class SyncMetadataEntity(
     val serverUpdatedAt: String? = null,
     val syncState: String = "IDLE"
 )
+
+@Entity(
+    tableName = "purchase_transactions",
+    indices = [
+        Index(value = ["userId"]),
+        Index(value = ["purchaseToken"]),
+        Index(value = ["status"]),
+        Index(value = ["isSyncedWithBackend"]),
+        Index(value = ["createdAt"])
+    ]
+)
+data class PurchaseTransactionEntity(
+    @PrimaryKey val transactionId: String,
+    val userId: String,
+    val orderId: String?,
+    val purchaseToken: String,
+    val productId: String,
+    val productTitle: String,
+    val productType: String, // "SUBSCRIPTION" or "IN_APP"
+    val purchaseTime: Long,
+    val status: String, // "PURCHASED", "PENDING", "USER_CANCELED", "ERROR", "REFUNDED"
+    val isAcknowledged: Boolean = false,
+    val isSyncedWithBackend: Boolean = false,
+    val responseCode: Int = 0,
+    val errorMessage: String? = null,
+    val rawJsonPayload: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)

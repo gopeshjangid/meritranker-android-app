@@ -149,9 +149,10 @@ dependencies {
   // OkHttp
   implementation(libs.okhttp)
 
-  // Google Play In-App Review & In-App Update
+  // Google Play In-App Review & In-App Update & Google Play Billing
   implementation(libs.play.review)
   implementation(libs.play.app.update)
+  implementation(libs.play.billing)
 
   coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
