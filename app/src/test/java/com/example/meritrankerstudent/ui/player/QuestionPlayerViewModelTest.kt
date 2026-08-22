@@ -250,8 +250,71 @@ class QuestionPlayerViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
+        assertEquals(PlayerMode.RESUME_ATTEMPT, state.playerMode)
         assertEquals(1, state.currentIndex) // 0-indexed position for position=2
         assertEquals("Article 14", state.selectedOptions["q-1"])
         assertTrue(state.lockedQuestions["q-1"] == true)
+    }
+
+    @Test
+    fun newAttempt_startsCleanWithZeroAnswersAndNewMode() = runTest {
+        val newPayload = fakeStartPayload.copy(
+            attempt = fakeStartPayload.attempt.copy(
+                status = PracticeAttemptStatus.IN_PROGRESS,
+                currentQuestionPosition = 1
+            ),
+            responses = emptyList()
+        )
+
+        val repo = FakePracticeRepository(newPayload)
+        val viewModel = QuestionPlayerViewModel(repo, "QUIZ", "act-1", startTimer = false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(PlayerMode.NEW_ATTEMPT, state.playerMode)
+        assertEquals(0, state.currentIndex)
+        assertTrue(state.selectedOptions.isEmpty())
+        assertTrue(state.lockedQuestions.isEmpty())
+        assertFalse(state.isSubmitted)
+    }
+
+    @Test
+    fun completedAttempt_opensInReviewModeAndDisablesOptionChanges() = runTest {
+        val completedPayload = fakeStartPayload.copy(
+            attempt = fakeStartPayload.attempt.copy(
+                status = PracticeAttemptStatus.SUBMITTED,
+                currentQuestionPosition = 2
+            ),
+            responses = listOf(
+                PracticeResponsePayload(
+                    questionId = "q-1",
+                    selectedOption = "Article 14",
+                    isAnswerLocked = true
+                ),
+                PracticeResponsePayload(
+                    questionId = "q-2",
+                    selectedOption = "New Delhi",
+                    isAnswerLocked = true
+                )
+            )
+        )
+
+        val repo = FakePracticeRepository(completedPayload)
+        val viewModel = QuestionPlayerViewModel(repo, "QUIZ", "act-1", startTimer = false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(PlayerMode.REVIEW_COMPLETED_ATTEMPT, state.playerMode)
+        assertTrue(state.isSubmitted)
+        assertEquals("Article 14", state.selectedOptions["q-1"])
+        assertEquals("New Delhi", state.selectedOptions["q-2"])
+
+        // Attempting to select or check in review mode must be ignored
+        viewModel.selectOption("q-1", "Article 19")
+        assertEquals("Article 14", viewModel.uiState.value.selectedOptions["q-1"])
+
+        viewModel.checkAnswer("q-1")
+        advanceUntilIdle()
+        assertEquals(0, repo.checkAnswerCalls)
     }
 }

@@ -111,7 +111,6 @@ fun AskDoubtScreen(
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     var isInputFocused by remember { mutableStateOf(false) }
     var autoFollowLatest by remember { mutableStateOf(true) }
-    var isComposerManuallyExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.loadCuratedSuggestions(context)
     }
@@ -319,7 +318,6 @@ fun AskDoubtScreen(
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             autoFollowLatest = true
-            isComposerManuallyExpanded = false
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
@@ -342,15 +340,6 @@ fun AskDoubtScreen(
             autoFollowLatest = false
         }
     }
-
-    // Immersive Composer Collapse State Calculation (Section 100)
-    val isComposerCollapsed = uiState.messages.isNotEmpty() &&
-            !isInputFocused &&
-            !isComposerManuallyExpanded &&
-            uiState.inputText.isBlank() &&
-            uiState.selectedAttachmentUri == null &&
-            !uiState.isVoiceModeActive &&
-            listState.canScrollForward
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -518,13 +507,14 @@ fun AskDoubtScreen(
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp)
+                        contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp)
                     ) {
                         items(uiState.messages) { message ->
                             val isLatestAssistant = message == uiState.messages.lastOrNull { !it.sender.equals("USER", ignoreCase = true) }
                             DoubtMessageBubble(
                                 message = message,
                                 isLatestAssistantMessage = isLatestAssistant,
+                                isStreaming = uiState.isStreaming && isLatestAssistant,
                                 onActionClick = onActionClick,
                                 onCopyClick = { textToCopy ->
                                     coroutineScope.launch {
@@ -747,127 +737,74 @@ fun AskDoubtScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    if (isComposerCollapsed) {
-                        // Sleek 38dp Collapsed Affordance (Section 100)
-                        Surface(
-                            onClick = {
-                                isComposerManuallyExpanded = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(50)
-                                    focusRequester.requestFocus()
-                                    keyboardController?.show()
-                                }
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                            shadowElevation = 2.dp,
+                    // Unified Floating AI Composer Card
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                            // Selected Image Attachment Chip (Clearable)
+                            if (uiState.selectedAttachmentUri != null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier
+                                        .padding(bottom = 6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Add,
+                                        imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "फॉलो-अप प्रश्न पूछें..." else "Ask a follow-up doubt...",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                        text = if (uiState.attachmentSource == AttachmentSource.CAMERA) "Camera Photo" else "Attached Image",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        isComposerManuallyExpanded = true
-                                        toggleVoiceListening()
-                                    },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Voice input",
-                                        tint = MaterialTheme.colorScheme.primary,
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    IconButton(
+                                        onClick = { viewModel.removeAttachment() },
                                         modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        // Unified Floating AI Composer Card
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                            shadowElevation = 2.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                // Selected Image Attachment Chip (Clearable)
-                                if (uiState.selectedAttachmentUri != null) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .padding(bottom = 6.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(15.dp)
+                                            imageVector = Icons.Default.Clear,
+                                            contentDescription = "Remove photo",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(13.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = if (uiState.attachmentSource == AttachmentSource.CAMERA) "Camera Photo" else "Attached Image",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        IconButton(
-                                            onClick = { viewModel.removeAttachment() },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = "Remove photo",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
                                     }
                                 }
+                            }
 
-                                // Full-Width Editable Text Area
-                                MultilineExpandingTextField(
-                                    value = uiState.inputText,
-                                    onValueChange = { viewModel.onInputTextChange(it) },
-                                    placeholder = if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "डाउट पूछें या सवाल लिखें..." else "Ask anything...",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp),
-                                    enabled = !uiState.isAiThinking,
-                                    focusRequester = focusRequester,
-                                    onFocusChanged = { isInputFocused = it }
-                                )
+                            // Full-Width Editable Text Area
+                            val dynamicPlaceholder = if (uiState.messages.isNotEmpty()) {
+                                if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "फॉलो-अप प्रश्न पूछें..." else "Ask a follow-up doubt..."
+                            } else {
+                                if (uiState.selectedLanguage.startsWith("hi", ignoreCase = true)) "डाउट पूछें या सवाल लिखें..." else "Ask anything..."
+                            }
+
+                            MultilineExpandingTextField(
+                                value = uiState.inputText,
+                                onValueChange = { viewModel.onInputTextChange(it) },
+                                placeholder = dynamicPlaceholder,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                enabled = !uiState.isAiThinking,
+                                focusRequester = focusRequester,
+                                onFocusChanged = { isInputFocused = it }
+                            )
 
                             Spacer(modifier = Modifier.height(4.dp))
 
@@ -1223,7 +1160,6 @@ fun AskDoubtScreen(
             }
         }
     }
-}
 }
 
 @Composable
@@ -1918,6 +1854,7 @@ fun ConversationHistoryDrawerContent(
 fun DoubtMessageBubble(
     message: DoubtMessage,
     isLatestAssistantMessage: Boolean = false,
+    isStreaming: Boolean = false,
     onActionClick: (NavKey) -> Unit,
     onCopyClick: (String) -> Unit,
     onShareClick: (String) -> Unit,
@@ -2020,21 +1957,7 @@ fun DoubtMessageBubble(
                 }
 
                 if (!isUser) {
-                    if (message.isPracticeGenerating || (message.practiceTestId != null && message.text.isBlank())) {
-                        val testId = message.practiceTestId ?: "practice_set"
-                        val mode = if (message.actionRoute.equals("MOCK", ignoreCase = true)) "MOCK" else "QUIZ"
-                        GeneratingPracticeCard(
-                            testId = testId,
-                            title = message.practiceTitle ?: "Practice Quiz",
-                            totalQuestions = message.practiceTotalQuestions,
-                            readyQuestions = message.practiceReadyQuestions,
-                            status = message.practiceStatus,
-                            onStartPractice = {
-                                onActionClick(com.example.meritrankerstudent.QuestionPlayer(mode = mode, id = testId))
-                            },
-                            onCancel = onCancelGeneration
-                        )
-                    } else if (message.errorMessage != null) {
+                    if (message.errorMessage != null) {
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
@@ -2059,7 +1982,7 @@ fun DoubtMessageBubble(
                                 )
                             }
                         }
-                    } else if (message.isThinking || message.text.isBlank()) {
+                    } else if (message.isThinking || (message.text.isBlank() && !message.isPracticeGenerating && message.practiceTestId == null)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2081,10 +2004,10 @@ fun DoubtMessageBubble(
                                 )
                             )
                         }
-                    } else {
+                    } else if (message.text.isNotBlank()) {
                         EducationalContentRenderer(
                             content = message.text,
-                            isStreaming = false
+                            isStreaming = isStreaming
                         )
                     }
                 } else if (message.text.isNotBlank()) {
@@ -2096,17 +2019,19 @@ fun DoubtMessageBubble(
                     )
                 }
 
-                // If practice generation is also present with textual explanation
-                if (!isUser && message.practiceTestId != null && message.text.isNotBlank()) {
+                // Inline Practice Assessment card: rendered exactly ONCE when this turn has an active or valid practice generation
+                if (!isUser && message.practiceTestId != null && (message.isPracticeGenerating || message.practiceStatus == "READY" || message.practiceStatus == "GENERATING" || message.practiceStatus == "FAILED")) {
                     val testId = message.practiceTestId
                     val mode = if (message.actionRoute.equals("MOCK", ignoreCase = true)) "MOCK" else "QUIZ"
-                    Spacer(modifier = Modifier.height(10.dp))
+                    if (message.text.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                     GeneratingPracticeCard(
                         testId = testId,
                         title = message.practiceTitle ?: "Practice Quiz",
                         totalQuestions = message.practiceTotalQuestions,
                         readyQuestions = message.practiceReadyQuestions,
-                        status = message.practiceStatus,
+                        status = message.practiceStatus ?: if (message.isPracticeGenerating) "GENERATING" else "READY",
                         onStartPractice = {
                             onActionClick(com.example.meritrankerstudent.QuestionPlayer(mode = mode, id = testId))
                         },

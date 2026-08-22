@@ -12,10 +12,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class PlayerMode {
+    NEW_ATTEMPT,
+    RESUME_ATTEMPT,
+    REVIEW_COMPLETED_ATTEMPT
+}
+
 data class PlayerUiState(
     val isLoading: Boolean = true,
     val mode: String = "",
     val id: String = "",
+    val playerMode: PlayerMode = PlayerMode.NEW_ATTEMPT,
     val summary: PracticeActivitySummary? = null,
     val attempt: PracticeAttemptPayload? = null,
     val questions: List<PracticeQuestionPayload> = emptyList(),
@@ -56,31 +63,45 @@ class QuestionPlayerViewModel(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val startPayload = repository.startOrResumeAttempt(id)
+                val isCompleted = startPayload.attempt.status == PracticeAttemptStatus.SUBMITTED ||
+                        startPayload.attempt.status == PracticeAttemptStatus.EXPIRED
+
+                val determinedMode = when {
+                    isCompleted -> PlayerMode.REVIEW_COMPLETED_ATTEMPT
+                    startPayload.responses.isNotEmpty() || startPayload.attempt.currentQuestionPosition > 1 -> PlayerMode.RESUME_ATTEMPT
+                    else -> PlayerMode.NEW_ATTEMPT
+                }
+
                 val restoredAnswers = mutableMapOf<String, String>()
                 val restoredLocked = mutableMapOf<String, Boolean>()
 
-                startPayload.responses.forEach { resp ->
-                    resp.selectedOption?.let { opt ->
-                        restoredAnswers[resp.questionId] = opt
-                    }
-                    if (resp.isAnswerLocked) {
-                        restoredLocked[resp.questionId] = true
+                if (determinedMode != PlayerMode.NEW_ATTEMPT) {
+                    startPayload.responses.forEach { resp ->
+                        resp.selectedOption?.let { opt ->
+                            restoredAnswers[resp.questionId] = opt
+                        }
+                        if (resp.isAnswerLocked || determinedMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT) {
+                            restoredLocked[resp.questionId] = true
+                        }
                     }
                 }
 
-                val targetIndex = (startPayload.attempt.currentQuestionPosition - 1)
-                    .coerceIn(0, (startPayload.questions.size - 1).coerceAtLeast(0))
+                val targetIndex = if (determinedMode == PlayerMode.NEW_ATTEMPT) {
+                    0
+                } else {
+                    (startPayload.attempt.currentQuestionPosition - 1)
+                        .coerceIn(0, (startPayload.questions.size - 1).coerceAtLeast(0))
+                }
 
-                val isResumed = startPayload.attempt.currentQuestionPosition > 1 || restoredAnswers.isNotEmpty()
                 val examId = startPayload.summary.exams.firstOrNull()
-                if (isResumed) {
+                if (determinedMode == PlayerMode.RESUME_ATTEMPT) {
                     com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
                         com.example.meritrankerstudent.observability.TelemetryEvent.PracticeResumed(
                             examProfileId = examId,
                             practiceType = mode
                         )
                     )
-                } else {
+                } else if (determinedMode == PlayerMode.NEW_ATTEMPT) {
                     com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
                         com.example.meritrankerstudent.observability.TelemetryEvent.PracticeStarted(
                             examProfileId = examId,
@@ -93,6 +114,8 @@ class QuestionPlayerViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        playerMode = determinedMode,
+                        isSubmitted = (determinedMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT),
                         summary = startPayload.summary,
                         attempt = startPayload.attempt,
                         questions = startPayload.questions,
@@ -125,7 +148,11 @@ class QuestionPlayerViewModel(
 
     fun selectOption(questionId: String, optionText: String) {
         val state = _uiState.value
-        if (state.lockedQuestions[questionId] == true || state.isChecking || state.isSubmitting) return
+        if (state.playerMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT ||
+            state.lockedQuestions[questionId] == true ||
+            state.isChecking ||
+            state.isSubmitting ||
+            state.isSubmitted) return
 
         _uiState.update {
             val updated = it.selectedOptions.toMutableMap()
@@ -138,7 +165,10 @@ class QuestionPlayerViewModel(
         val state = _uiState.value
         val attemptId = state.attempt?.attemptId ?: return
         val selectedOption = state.selectedOptions[questionId] ?: return
-        if (state.isChecking || state.lockedQuestions[questionId] == true) return
+        if (state.playerMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT ||
+            state.isChecking ||
+            state.lockedQuestions[questionId] == true ||
+            state.isSubmitted) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true, errorMessage = null) }
@@ -186,7 +216,10 @@ class QuestionPlayerViewModel(
             val attemptId = state.attempt?.attemptId
             val selected = state.selectedOptions[currentQ.questionId]
 
-            if (attemptId != null && selected != null && state.lockedQuestions[currentQ.questionId] != true) {
+            if (state.playerMode != PlayerMode.REVIEW_COMPLETED_ATTEMPT &&
+                attemptId != null &&
+                selected != null &&
+                state.lockedQuestions[currentQ.questionId] != true) {
                 viewModelScope.launch {
                     try {
                         repository.saveResponse(
@@ -218,7 +251,7 @@ class QuestionPlayerViewModel(
         val state = _uiState.value
         val attemptId = state.attempt?.attemptId ?: return
         val activityId = state.summary?.activityId ?: state.attempt.activityId
-        if (state.isSubmitting || state.isSubmitted) return
+        if (state.playerMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT || state.isSubmitting || state.isSubmitted) return
 
         val answeredCount = state.selectedOptions.size
         val examId = state.summary?.exams?.firstOrNull()
@@ -248,6 +281,7 @@ class QuestionPlayerViewModel(
                     it.copy(
                         isSubmitting = false,
                         isSubmitted = true,
+                        playerMode = PlayerMode.REVIEW_COMPLETED_ATTEMPT,
                         result = result
                     )
                 }

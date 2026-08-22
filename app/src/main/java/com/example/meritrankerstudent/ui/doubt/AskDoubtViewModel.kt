@@ -174,11 +174,11 @@ class AskDoubtViewModel(
                 }
                 _uiState.update { it.copy(messages = merged, isLoadingMessages = false) }
 
-                // Register coordinator for any testId not yet tracked
+                // Register coordinator ONLY for active live practice generations that are in flight
                 messageList.forEach { msg ->
-                    msg.practiceTestId?.let { testId ->
+                    if (msg.isPracticeGenerating && msg.practiceTestId != null && msg.practiceStatus != "READY" && msg.practiceStatus != "FAILED") {
                         practiceGenerationCoordinator?.trackGeneration(
-                            testId = testId,
+                            testId = msg.practiceTestId,
                             conversationId = _uiState.value.activeConversationId,
                             initialTitle = msg.practiceTitle ?: "Practice Quiz",
                             initialType = "QUIZ",

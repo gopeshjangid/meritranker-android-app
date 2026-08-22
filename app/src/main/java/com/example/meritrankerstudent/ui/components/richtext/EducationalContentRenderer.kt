@@ -51,155 +51,159 @@ sealed interface InlineSpan {
 object MarkdownDocumentParser {
 
     fun parseToBlocks(rawContent: String, isStreaming: Boolean): List<RichBlock> {
-        val content = ContentNormalizer.normalize(rawContent)
-        if (content.isBlank()) return emptyList()
+        return try {
+            val content = ContentNormalizer.normalize(rawContent)
+            if (content.isBlank()) return emptyList()
 
-        val blocks = mutableListOf<RichBlock>()
-        val lines = content.lines()
-        var i = 0
+            val blocks = mutableListOf<RichBlock>()
+            val lines = content.lines()
+            var i = 0
 
-        while (i < lines.size) {
-            val line = lines[i]
+            while (i < lines.size) {
+                val line = lines[i]
 
-            // Fenced code, timeline, or diagram blocks
-            if (line.trimStart().startsWith("```")) {
-                val lang = line.trimStart().removePrefix("```").trim()
-                val codeLines = mutableListOf<String>()
-                i++
-                while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
-                    codeLines.add(lines[i])
+                // Fenced code, timeline, or diagram blocks
+                if (line.trimStart().startsWith("```")) {
+                    val lang = line.trimStart().removePrefix("```").trim()
+                    val codeLines = mutableListOf<String>()
                     i++
-                }
-                if (i < lines.size) i++ // skip closing fence
-
-                if (lang.equals("timeline", ignoreCase = true)) {
-                    val items = codeLines.mapNotNull { tLine ->
-                        val parts = tLine.split("|").map { it.trim() }
-                        if (parts.size >= 2) {
-                            TimelineItem(dateOrYear = parts[0], title = parts[1], detail = parts.getOrNull(2))
-                        } else null
+                    while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
+                        codeLines.add(lines[i])
+                        i++
                     }
-                    if (items.isNotEmpty()) {
-                        blocks.add(RichBlock.Timeline(items))
+                    if (i < lines.size) i++ // skip closing fence
+
+                    if (lang.equals("timeline", ignoreCase = true)) {
+                        val items = codeLines.mapNotNull { tLine ->
+                            val parts = tLine.split("|").map { it.trim() }
+                            if (parts.size >= 2) {
+                                TimelineItem(dateOrYear = parts[0], title = parts[1], detail = parts.getOrNull(2))
+                            } else null
+                        }
+                        if (items.isNotEmpty()) {
+                            blocks.add(RichBlock.Timeline(items))
+                        } else {
+                            blocks.add(RichBlock.Code(language = "timeline", code = codeLines.joinToString("\n")))
+                        }
+                    } else if (lang.equals("mermaid", ignoreCase = true) || lang.equals("diagram", ignoreCase = true)) {
+                        val rawDiagram = codeLines.joinToString("\n")
+                        val steps = codeLines
+                            .filter { !it.trim().startsWith("flowchart") && !it.trim().startsWith("graph") }
+                            .map { it.replace(Regex("[\\[\\]]|\\-\\->"), " ").trim() }
+                            .filter { it.isNotBlank() }
+                        blocks.add(RichBlock.Diagram(type = lang, content = rawDiagram, steps = steps.ifEmpty { listOf(rawDiagram) }))
                     } else {
-                        blocks.add(RichBlock.Code(language = "timeline", code = codeLines.joinToString("\n")))
+                        blocks.add(RichBlock.Code(language = lang.ifEmpty { null }, code = codeLines.joinToString("\n")))
                     }
-                } else if (lang.equals("mermaid", ignoreCase = true) || lang.equals("diagram", ignoreCase = true)) {
-                    val rawDiagram = codeLines.joinToString("\n")
-                    val steps = codeLines
-                        .filter { !it.trim().startsWith("flowchart") && !it.trim().startsWith("graph") }
-                        .map { it.replace(Regex("[\\[\\]]|\\-\\->"), " ").trim() }
-                        .filter { it.isNotBlank() }
-                    blocks.add(RichBlock.Diagram(type = lang, content = rawDiagram, steps = steps.ifEmpty { listOf(rawDiagram) }))
-                } else {
-                    blocks.add(RichBlock.Code(language = lang.ifEmpty { null }, code = codeLines.joinToString("\n")))
+                    continue
                 }
-                continue
-            }
 
-            // Aligned equation block: \begin{aligned} ... \end{aligned} or \begin{equation}
-            if (line.contains("\\begin{aligned}") || line.contains("\\begin{equation}") || line.contains("\\begin{matrix}")) {
-                val alignedLines = mutableListOf<String>()
-                var currentLine = line
-                while (i < lines.size && !currentLine.contains("\\end{aligned}") && !currentLine.contains("\\end{equation}") && !currentLine.contains("\\end{matrix}")) {
-                    alignedLines.add(lines[i])
+                // Aligned equation block: \begin{aligned} ... \end{aligned} or \begin{equation}
+                if (line.contains("\\begin{aligned}") || line.contains("\\begin{equation}") || line.contains("\\begin{matrix}")) {
+                    val alignedLines = mutableListOf<String>()
+                    var currentLine = line
+                    while (i < lines.size && !currentLine.contains("\\end{aligned}") && !currentLine.contains("\\end{equation}") && !currentLine.contains("\\end{matrix}")) {
+                        alignedLines.add(lines[i])
+                        i++
+                        if (i < lines.size) currentLine = lines[i]
+                    }
+                    if (i < lines.size) {
+                        alignedLines.add(lines[i])
+                        i++
+                    }
+                    val fullAlignedFormula = alignedLines.joinToString("\n")
+                    blocks.add(RichBlock.Math(fullAlignedFormula))
+                    continue
+                }
+
+                // Block Math $$...$$ or \[...\]
+                if (line.trim().startsWith("$$") || line.trim().startsWith("\\[")) {
+                    val isSquareBracket = line.trim().startsWith("\\[")
+                    val startDelimiter = if (isSquareBracket) "\\[" else "$$"
+                    val endDelimiter = if (isSquareBracket) "\\]" else "$$"
+
+                    val mathLines = mutableListOf<String>()
+                    val firstLineText = line.trim().removePrefix(startDelimiter)
+                    if (firstLineText.endsWith(endDelimiter) && firstLineText.length > 2) {
+                        blocks.add(RichBlock.Math(firstLineText.removeSuffix(endDelimiter).trim()))
+                        i++
+                        continue
+                    }
+                    if (firstLineText.isNotBlank()) mathLines.add(firstLineText)
                     i++
-                    if (i < lines.size) currentLine = lines[i]
+                    while (i < lines.size && !lines[i].trim().endsWith(endDelimiter) && !lines[i].trim().startsWith(endDelimiter)) {
+                        mathLines.add(lines[i])
+                        i++
+                    }
+                    if (i < lines.size) {
+                        val lastLineText = lines[i].trim().removeSuffix(endDelimiter)
+                        if (lastLineText.isNotBlank()) mathLines.add(lastLineText)
+                        i++
+                    }
+                    blocks.add(RichBlock.Math(mathLines.joinToString(" ").trim()))
+                    continue
                 }
-                if (i < lines.size) {
-                    alignedLines.add(lines[i])
-                    i++
-                }
-                val fullAlignedFormula = alignedLines.joinToString("\n")
-                blocks.add(RichBlock.Math(fullAlignedFormula))
-                continue
-            }
 
-            // Block Math $$...$$ or \[...\]
-            if (line.trim().startsWith("$$") || line.trim().startsWith("\\[")) {
-                val isSquareBracket = line.trim().startsWith("\\[")
-                val startDelimiter = if (isSquareBracket) "\\[" else "$$"
-                val endDelimiter = if (isSquareBracket) "\\]" else "$$"
-
-                val mathLines = mutableListOf<String>()
-                val firstLineText = line.trim().removePrefix(startDelimiter)
-                if (firstLineText.endsWith(endDelimiter) && firstLineText.length > 2) {
-                    blocks.add(RichBlock.Math(firstLineText.removeSuffix(endDelimiter).trim()))
+                // Standalone Chemistry Block \ce{...}
+                if (line.trim().startsWith("\\ce{") && line.trim().endsWith("}")) {
+                    val chemFormula = line.trim().removePrefix("\\ce{").removeSuffix("}").trim()
+                    blocks.add(RichBlock.Chemistry(chemFormula))
                     i++
                     continue
                 }
-                if (firstLineText.isNotBlank()) mathLines.add(firstLineText)
-                i++
-                while (i < lines.size && !lines[i].trim().endsWith(endDelimiter) && !lines[i].trim().startsWith(endDelimiter)) {
-                    mathLines.add(lines[i])
-                    i++
-                }
-                if (i < lines.size) {
-                    val lastLineText = lines[i].trim().removeSuffix(endDelimiter)
-                    if (lastLineText.isNotBlank()) mathLines.add(lastLineText)
-                    i++
-                }
-                blocks.add(RichBlock.Math(mathLines.joinToString(" ").trim()))
-                continue
-            }
 
-            // Standalone Chemistry Block \ce{...}
-            if (line.trim().startsWith("\\ce{") && line.trim().endsWith("}")) {
-                val chemFormula = line.trim().removePrefix("\\ce{").removeSuffix("}").trim()
-                blocks.add(RichBlock.Chemistry(chemFormula))
-                i++
-                continue
-            }
+                // Headers (# ## ###)
+                if (line.startsWith("#")) {
+                    val level = line.takeWhile { it == '#' }.length
+                    val title = line.drop(level).trim()
+                    if (title.isNotBlank()) {
+                        blocks.add(RichBlock.Header(level = level.coerceIn(1, 4), text = title))
+                        i++
+                        continue
+                    }
+                }
 
-            // Headers (# ## ###)
-            if (line.startsWith("#")) {
-                val level = line.takeWhile { it == '#' }.length
-                val title = line.drop(level).trim()
-                if (title.isNotBlank()) {
-                    blocks.add(RichBlock.Header(level = level.coerceIn(1, 4), text = title))
-                    i++
+                // Table (| col1 | col2 |)
+                if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+                    val tableLines = mutableListOf<String>()
+                    while (i < lines.size && lines[i].trim().startsWith("|")) {
+                        tableLines.add(lines[i].trim())
+                        i++
+                    }
+                    val parsedTable = parseMarkdownTable(tableLines)
+                    if (parsedTable != null) {
+                        blocks.add(parsedTable)
+                    } else {
+                        tableLines.forEach { blocks.add(RichBlock.Paragraph(parseInlineSpans(it))) }
+                    }
                     continue
                 }
+
+                // List items (* - 1.)
+                if (isListLine(line)) {
+                    val listSpans = mutableListOf<List<InlineSpan>>()
+                    val isOrdered = line.trim().firstOrNull()?.isDigit() == true
+                    while (i < lines.size && isListLine(lines[i])) {
+                        val itemText = lines[i].trim()
+                            .replaceFirst(Regex("^([*\\-]|\\[[ xX]\\]|\\d+\\.)\\s*"), "")
+                        listSpans.add(parseInlineSpans(itemText))
+                        i++
+                    }
+                    blocks.add(RichBlock.ListGroup(items = listSpans, isOrdered = isOrdered))
+                    continue
+                }
+
+                // Regular paragraph
+                if (line.isNotBlank()) {
+                    blocks.add(RichBlock.Paragraph(parseInlineSpans(line.trim())))
+                }
+                i++
             }
 
-            // Table (| col1 | col2 |)
-            if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
-                val tableLines = mutableListOf<String>()
-                while (i < lines.size && lines[i].trim().startsWith("|")) {
-                    tableLines.add(lines[i].trim())
-                    i++
-                }
-                val parsedTable = parseMarkdownTable(tableLines)
-                if (parsedTable != null) {
-                    blocks.add(parsedTable)
-                } else {
-                    tableLines.forEach { blocks.add(RichBlock.Paragraph(parseInlineSpans(it))) }
-                }
-                continue
-            }
-
-            // List items (* - 1.)
-            if (isListLine(line)) {
-                val listSpans = mutableListOf<List<InlineSpan>>()
-                val isOrdered = line.trim().firstOrNull()?.isDigit() == true
-                while (i < lines.size && isListLine(lines[i])) {
-                    val itemText = lines[i].trim()
-                        .replaceFirst(Regex("^([*\\-]|\\[[ xX]\\]|\\d+\\.)\\s*"), "")
-                    listSpans.add(parseInlineSpans(itemText))
-                    i++
-                }
-                blocks.add(RichBlock.ListGroup(items = listSpans, isOrdered = isOrdered))
-                continue
-            }
-
-            // Regular paragraph
-            if (line.isNotBlank()) {
-                blocks.add(RichBlock.Paragraph(parseInlineSpans(line.trim())))
-            }
-            i++
+            blocks
+        } catch (_: Throwable) {
+            listOf(RichBlock.Paragraph(listOf(InlineSpan.Text(rawContent))))
         }
-
-        return blocks
     }
 
     private fun isListLine(line: String): Boolean {
@@ -210,63 +214,71 @@ object MarkdownDocumentParser {
     }
 
     private fun parseMarkdownTable(lines: List<String>): RichBlock.Table? {
-        if (lines.size < 2) return null
-        val headers = lines[0].split("|").map { it.trim() }.filter { it.isNotEmpty() }
-        val bodyLines = lines.drop(if (lines.getOrNull(1)?.contains("---") == true) 2 else 1)
-        val rows = bodyLines.map { rowLine ->
-            rowLine.split("|").map { it.trim() }.filterIndexed { index, _ -> index in headers.indices }
+        return try {
+            if (lines.size < 2) return null
+            val headers = lines[0].split("|").map { it.trim() }.filter { it.isNotEmpty() }
+            val bodyLines = lines.drop(if (lines.getOrNull(1)?.contains("---") == true) 2 else 1)
+            val rows = bodyLines.map { rowLine ->
+                rowLine.split("|").map { it.trim() }.filterIndexed { index, _ -> index in headers.indices }
+            }
+            RichBlock.Table(headers = headers, rows = rows)
+        } catch (_: Throwable) {
+            null
         }
-        return RichBlock.Table(headers = headers, rows = rows)
     }
 
     fun parseInlineSpans(text: String): List<InlineSpan> {
         if (text.isBlank()) return emptyList()
-        val spans = mutableListOf<InlineSpan>()
+        return try {
+            val spans = mutableListOf<InlineSpan>()
 
-        // Comprehensive regex matching inline chemistry \ce{...}, block math $$...$$, \[...\], inline math \(...\), and $...$
-        val pattern = Regex("(\\\\(?:ce)\\{[^}]+\\}|\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$[^\\$\\n]+?\\$)")
-        var lastIdx = 0
+            // Comprehensive regex matching inline chemistry \ce{...}, block math $$...$$, \[...\], inline math \(...\), and $...$
+            val pattern = Regex("(\\\\(?:ce)\\{[^}]+\\}|\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$[^\\$\\n]+?\\$)")
+            var lastIdx = 0
 
-        for (match in pattern.findAll(text)) {
-            val start = match.range.first
-            val end = match.range.last + 1
+            for (match in pattern.findAll(text)) {
+                val start = match.range.first
+                val end = match.range.last + 1
 
-            if (start > lastIdx) {
-                spans.addAll(parseFormattedTextSpans(text.substring(lastIdx, start)))
+                if (start > lastIdx) {
+                    spans.addAll(parseFormattedTextSpans(text.substring(lastIdx, start)))
+                }
+
+                val rawSpan = match.value
+                when {
+                    rawSpan.startsWith("\\ce{") -> {
+                        val chemContent = rawSpan.removePrefix("\\ce{").removeSuffix("}")
+                        spans.add(InlineSpan.Chemistry(chemContent))
+                    }
+                    rawSpan.startsWith("\\[") -> {
+                        val mathContent = rawSpan.removePrefix("\\[").removeSuffix("\\]")
+                        spans.add(InlineSpan.Math(mathContent.trim()))
+                    }
+                    rawSpan.startsWith("$$") -> {
+                        val mathContent = rawSpan.removePrefix("$$").removeSuffix("$$")
+                        spans.add(InlineSpan.Math(mathContent.trim()))
+                    }
+                    rawSpan.startsWith("\\(") -> {
+                        val mathContent = rawSpan.removePrefix("\\(").removeSuffix("\\)")
+                        spans.add(InlineSpan.Math(mathContent.trim()))
+                    }
+                    rawSpan.startsWith("$") -> {
+                        val mathContent = rawSpan.removePrefix("$").removeSuffix("$")
+                        spans.add(InlineSpan.Math(mathContent.trim()))
+                    }
+                }
+
+                lastIdx = end
             }
 
-            val rawSpan = match.value
-            when {
-                rawSpan.startsWith("\\ce{") -> {
-                    val chemContent = rawSpan.removePrefix("\\ce{").removeSuffix("}")
-                    spans.add(InlineSpan.Chemistry(chemContent))
-                }
-                rawSpan.startsWith("\\[") -> {
-                    val mathContent = rawSpan.removePrefix("\\[").removeSuffix("\\]")
-                    spans.add(InlineSpan.Math(mathContent.trim()))
-                }
-                rawSpan.startsWith("$$") -> {
-                    val mathContent = rawSpan.removePrefix("$$").removeSuffix("$$")
-                    spans.add(InlineSpan.Math(mathContent.trim()))
-                }
-                rawSpan.startsWith("\\(") -> {
-                    val mathContent = rawSpan.removePrefix("\\(").removeSuffix("\\)")
-                    spans.add(InlineSpan.Math(mathContent.trim()))
-                }
-                rawSpan.startsWith("$") -> {
-                    val mathContent = rawSpan.removePrefix("$").removeSuffix("$")
-                    spans.add(InlineSpan.Math(mathContent.trim()))
-                }
+            if (lastIdx < text.length) {
+                spans.addAll(parseFormattedTextSpans(text.substring(lastIdx)))
             }
 
-            lastIdx = end
+            spans.ifEmpty { listOf(InlineSpan.Text(cleanStrayLatexMacros(text))) }
+        } catch (_: Throwable) {
+            listOf(InlineSpan.Text(text))
         }
-
-        if (lastIdx < text.length) {
-            spans.addAll(parseFormattedTextSpans(text.substring(lastIdx)))
-        }
-
-        return spans.ifEmpty { listOf(InlineSpan.Text(cleanStrayLatexMacros(text))) }
     }
 
     private fun parseFormattedTextSpans(text: String): List<InlineSpan> {
@@ -914,160 +926,174 @@ fun buildInlineAnnotatedString(
  * roots \sqrt{x}, superscripts ^2, subscripts _1, aligned calculations, and TeX symbols.
  */
 fun formatMathExpression(input: String): String {
-    var str = input.trim()
+    return try {
+        var str = input.trim()
 
-    // Handle aligned blocks: \begin{aligned}... \end{aligned}
-    if (str.contains("\\begin{aligned}")) {
-        val body = str.substringAfter("\\begin{aligned}").substringBefore("\\end{aligned}").trim()
-        val lines = body.split("\\\\", "\n")
-        return lines.map { line ->
-            val cleanedLine = line.replace("&=", "=").replace("&", "").trim()
-            formatMathExpression(cleanedLine)
-        }.filter { it.isNotBlank() }.joinToString("\n")
+        // Handle aligned blocks: \begin{aligned}... \end{aligned}
+        if (str.contains("\\begin{aligned}")) {
+            val body = str.substringAfter("\\begin{aligned}").substringBefore("\\end{aligned}").trim()
+            val lines = body.split("\\\\", "\n")
+            return lines.map { line ->
+                val cleanedLine = line.replace("&=", "=").replace("&", "").trim()
+                formatMathExpression(cleanedLine)
+            }.filter { it.isNotBlank() }.joinToString("\n")
+        }
+
+        // Step 1: Unwrap text and font tags: \text{...}, \mathrm{...}, \mathbf{...}, etc.
+        str = str
+            .replace(Regex("\\\\text\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathrm\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathbf\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathit\\{([^}]+)\\}")) { it.groupValues[1] }
+            .replace(Regex("\\\\mathtt\\{([^}]+)\\}")) { it.groupValues[1] }
+
+        // Step 2: Recursively parse \frac{Num}{Den} with nested brace depth matching
+        str = parseLaTeXFractions(str)
+
+        // Step 3: Parse \sqrt{x}
+        str = parseLaTeXRoots(str)
+
+        // Step 4: Format superscripts (x^2 -> x², a^{m+n} -> aᵐ⁺ⁿ) & subscripts (x_1 -> x₁)
+        str = formatSuperscriptsAndSubscripts(str)
+
+        // Step 5: Format common LaTeX symbols
+        str = str
+            .replace("\\implies", "⟹")
+            .replace("\\iff", "⟺")
+            .replace("\\therefore", "∴")
+            .replace("\\because", "∵")
+            .replace("\\Rightarrow", "⟹")
+            .replace("\\Leftarrow", "⟸")
+            .replace("\\Leftrightarrow", "⟺")
+            .replace("\\longrightarrow", "⟶")
+            .replace("\\longleftarrow", "⟵")
+            .replace("\\pm", "±")
+            .replace("\\mp", "∓")
+            .replace("\\times", "×")
+            .replace("\\div", "÷")
+            .replace("\\cdot", "·")
+            .replace("\\approx", "≈")
+            .replace("\\neq", "≠")
+            .replace("\\ne", "≠")
+            .replace("\\leq", "≤")
+            .replace("\\le", "≤")
+            .replace("\\geq", "≥")
+            .replace("\\ge", "≥")
+            .replace("\\infty", "∞")
+            .replace("\\rightarrow", "→")
+            .replace("\\to", "→")
+            .replace("\\leftarrow", "←")
+            .replace("\\gets", "←")
+            .replace("\\left(", "(")
+            .replace("\\right)", ")")
+            .replace("\\left[", "[")
+            .replace("\\right]", "]")
+            .replace("\\left\\{", "{")
+            .replace("\\right\\}", "}")
+            .replace("\\left|", "|")
+            .replace("\\right|", "|")
+            .replace("\\left.", "")
+            .replace("\\right.", "")
+            .replace("\\%", "%")
+            .replace("\\alpha", "α")
+            .replace("\\beta", "β")
+            .replace("\\gamma", "γ")
+            .replace("\\delta", "δ")
+            .replace("\\epsilon", "ε")
+            .replace("\\theta", "θ")
+            .replace("\\lambda", "λ")
+            .replace("\\mu", "μ")
+            .replace("\\pi", "π")
+            .replace("\\sigma", "σ")
+            .replace("\\tau", "τ")
+            .replace("\\phi", "φ")
+            .replace("\\omega", "ω")
+            .replace("\\Delta", "Δ")
+            .replace("\\Sigma", "Σ")
+            .replace("\\Omega", "Ω")
+            .replace("\\sum", "Σ")
+            .replace("\\int", "∫")
+            .replace("\\degree", "°")
+            .replace("\\angle", "∠")
+            .replace("\\triangle", "△")
+            .replace("\\parallel", "∥")
+            .replace("\\perp", "⊥")
+            .replace("\\cup", "∪")
+            .replace("\\cap", "∩")
+            .replace("\\in", "∈")
+            .replace("\\notin", "∉")
+            .replace("\\subset", "⊂")
+            .replace("\\subseteq", "⊆")
+            .replace("\\supset", "⊃")
+            .replace("\\supseteq", "⊇")
+            .replace("\\emptyset", "∅")
+            .replace("\\empty", "∅")
+            .replace("\\{", "{")
+            .replace("\\}", "}")
+
+        str
+    } catch (_: Throwable) {
+        input
     }
-
-    // Step 1: Unwrap text and font tags: \text{...}, \mathrm{...}, \mathbf{...}, etc.
-    str = str
-        .replace(Regex("\\\\text\\{([^}]+)\\}")) { it.groupValues[1] }
-        .replace(Regex("\\\\mathrm\\{([^}]+)\\}")) { it.groupValues[1] }
-        .replace(Regex("\\\\mathbf\\{([^}]+)\\}")) { it.groupValues[1] }
-        .replace(Regex("\\\\mathit\\{([^}]+)\\}")) { it.groupValues[1] }
-        .replace(Regex("\\\\mathtt\\{([^}]+)\\}")) { it.groupValues[1] }
-
-    // Step 2: Recursively parse \frac{Num}{Den} with nested brace depth matching
-    str = parseLaTeXFractions(str)
-
-    // Step 3: Parse \sqrt{x}
-    str = parseLaTeXRoots(str)
-
-    // Step 4: Format superscripts (x^2 -> x², a^{m+n} -> aᵐ⁺ⁿ) & subscripts (x_1 -> x₁)
-    str = formatSuperscriptsAndSubscripts(str)
-
-    // Step 5: Format common LaTeX symbols
-    str = str
-        .replace("\\implies", "⟹")
-        .replace("\\iff", "⟺")
-        .replace("\\therefore", "∴")
-        .replace("\\because", "∵")
-        .replace("\\Rightarrow", "⟹")
-        .replace("\\Leftarrow", "⟸")
-        .replace("\\Leftrightarrow", "⟺")
-        .replace("\\longrightarrow", "⟶")
-        .replace("\\longleftarrow", "⟵")
-        .replace("\\pm", "±")
-        .replace("\\mp", "∓")
-        .replace("\\times", "×")
-        .replace("\\div", "÷")
-        .replace("\\cdot", "·")
-        .replace("\\approx", "≈")
-        .replace("\\neq", "≠")
-        .replace("\\ne", "≠")
-        .replace("\\leq", "≤")
-        .replace("\\le", "≤")
-        .replace("\\geq", "≥")
-        .replace("\\ge", "≥")
-        .replace("\\infty", "∞")
-        .replace("\\rightarrow", "→")
-        .replace("\\to", "→")
-        .replace("\\leftarrow", "←")
-        .replace("\\gets", "←")
-        .replace("\\left(", "(")
-        .replace("\\right)", ")")
-        .replace("\\left[", "[")
-        .replace("\\right]", "]")
-        .replace("\\left\\{", "{")
-        .replace("\\right\\}", "}")
-        .replace("\\left|", "|")
-        .replace("\\right|", "|")
-        .replace("\\left.", "")
-        .replace("\\right.", "")
-        .replace("\\%", "%")
-        .replace("\\alpha", "α")
-        .replace("\\beta", "β")
-        .replace("\\gamma", "γ")
-        .replace("\\delta", "δ")
-        .replace("\\epsilon", "ε")
-        .replace("\\theta", "θ")
-        .replace("\\lambda", "λ")
-        .replace("\\mu", "μ")
-        .replace("\\pi", "π")
-        .replace("\\sigma", "σ")
-        .replace("\\tau", "τ")
-        .replace("\\phi", "φ")
-        .replace("\\omega", "ω")
-        .replace("\\Delta", "Δ")
-        .replace("\\Sigma", "Σ")
-        .replace("\\Omega", "Ω")
-        .replace("\\sum", "Σ")
-        .replace("\\int", "∫")
-        .replace("\\degree", "°")
-        .replace("\\angle", "∠")
-        .replace("\\triangle", "△")
-        .replace("\\parallel", "∥")
-        .replace("\\perp", "⊥")
-        .replace("\\cup", "∪")
-        .replace("\\cap", "∩")
-        .replace("\\in", "∈")
-        .replace("\\notin", "∉")
-        .replace("\\subset", "⊂")
-        .replace("\\subseteq", "⊆")
-        .replace("\\emptyset", "∅")
-        .replace("\\empty", "∅")
-        .replace("\\{", "{")
-        .replace("\\}", "}")
-
-    return str
 }
 
 /**
  * Recursive \frac{Num}{Den} parser using brace depth matching for nested expressions.
  */
 fun parseLaTeXFractions(input: String): String {
-    val target = "\\frac{"
-    val startIdx = input.indexOf(target)
-    if (startIdx == -1) return input
+    return try {
+        val target = "\\frac{"
+        val startIdx = input.indexOf(target)
+        if (startIdx == -1) return input
 
-    val numStart = startIdx + target.length
-    val numEnd = findMatchingBraceEnd(input, numStart) ?: return input
+        val numStart = startIdx + target.length
+        val numEnd = findMatchingBraceEnd(input, numStart) ?: return input
 
-    val numText = input.substring(numStart, numEnd)
+        val numText = input.substring(numStart, numEnd)
 
-    // Denominator starts with '{' immediately after numEnd
-    if (numEnd + 1 >= input.length || input[numEnd + 1] != '{') {
-        return input.substring(0, startIdx) + "($numText)" + parseLaTeXFractions(input.substring(numEnd + 1))
+        // Denominator starts with '{' immediately after numEnd
+        if (numEnd + 1 >= input.length || input[numEnd + 1] != '{') {
+            return input.substring(0, startIdx) + "($numText)" + parseLaTeXFractions(input.substring(numEnd + 1))
+        }
+
+        val denStart = numEnd + 2
+        val denEnd = findMatchingBraceEnd(input, denStart) ?: return input
+        val denText = input.substring(denStart, denEnd)
+
+        val formattedNum = parseLaTeXFractions(numText)
+        val formattedDen = parseLaTeXFractions(denText)
+
+        val numWrapped = if (formattedNum.contains("+") || formattedNum.contains("-") || formattedNum.contains(" ") || formattedNum.contains("/")) "($formattedNum)" else formattedNum
+        val denWrapped = if (formattedDen.contains("+") || formattedDen.contains("-") || formattedDen.contains(" ") || formattedDen.contains("/")) "($formattedDen)" else formattedDen
+        val replacement = "$numWrapped / $denWrapped"
+        val nextSegment = parseLaTeXFractions(input.substring(denEnd + 1))
+
+        input.substring(0, startIdx) + replacement + nextSegment
+    } catch (_: Throwable) {
+        input
     }
-
-    val denStart = numEnd + 2
-    val denEnd = findMatchingBraceEnd(input, denStart) ?: return input
-    val denText = input.substring(denStart, denEnd)
-
-    val formattedNum = parseLaTeXFractions(numText)
-    val formattedDen = parseLaTeXFractions(denText)
-
-    val numWrapped = if (formattedNum.contains("+") || formattedNum.contains("-") || formattedNum.contains(" ") || formattedNum.contains("/")) "($formattedNum)" else formattedNum
-    val denWrapped = if (formattedDen.contains("+") || formattedDen.contains("-") || formattedDen.contains(" ") || formattedDen.contains("/")) "($formattedDen)" else formattedDen
-    val replacement = "$numWrapped / $denWrapped"
-    val nextSegment = parseLaTeXFractions(input.substring(denEnd + 1))
-
-    return input.substring(0, startIdx) + replacement + nextSegment
 }
 
 /**
  * Recursive \sqrt{x} parser.
  */
 fun parseLaTeXRoots(input: String): String {
-    val target = "\\sqrt{"
-    val startIdx = input.indexOf(target)
-    if (startIdx == -1) return input
+    return try {
+        val target = "\\sqrt{"
+        val startIdx = input.indexOf(target)
+        if (startIdx == -1) return input
 
-    val contentStart = startIdx + target.length
-    val contentEnd = findMatchingBraceEnd(input, contentStart) ?: return input
-    val contentText = input.substring(contentStart, contentEnd)
+        val contentStart = startIdx + target.length
+        val contentEnd = findMatchingBraceEnd(input, contentStart) ?: return input
+        val contentText = input.substring(contentStart, contentEnd)
 
-    val replacement = "√(${parseLaTeXRoots(contentText)})"
-    val nextSegment = parseLaTeXRoots(input.substring(contentEnd + 1))
+        val replacement = "√(${parseLaTeXRoots(contentText)})"
+        val nextSegment = parseLaTeXRoots(input.substring(contentEnd + 1))
 
-    return input.substring(0, startIdx) + replacement + nextSegment
+        input.substring(0, startIdx) + replacement + nextSegment
+    } catch (_: Throwable) {
+        input
+    }
 }
 
 private fun findMatchingBraceEnd(str: String, startIdx: Int): Int? {
@@ -1085,27 +1111,31 @@ private fun findMatchingBraceEnd(str: String, startIdx: Int): Int? {
 }
 
 fun formatSuperscriptsAndSubscripts(input: String): String {
-    var result = input
+    return try {
+        var result = input
 
-    // Handle ^{exp}
-    result = Regex("\\^\\{([^}]+)\\}").replace(result) { match ->
-        toSuperscript(match.groupValues[1])
-    }
-    // Handle single ^digit or ^char
-    result = Regex("\\^([0-9a-n])").replace(result) { match ->
-        toSuperscript(match.groupValues[1])
-    }
+        // Handle ^{exp}
+        result = Regex("\\^\\{([^}]+)\\}").replace(result) { match ->
+            toSuperscript(match.groupValues[1])
+        }
+        // Handle single ^digit or ^char
+        result = Regex("\\^([0-9a-n])").replace(result) { match ->
+            toSuperscript(match.groupValues[1])
+        }
 
-    // Handle _{sub}
-    result = Regex("_\\{([^}]+)\\}").replace(result) { match ->
-        toSubscript(match.groupValues[1])
-    }
-    // Handle single _digit or _char
-    result = Regex("_([0-9a-z])").replace(result) { match ->
-        toSubscript(match.groupValues[1])
-    }
+        // Handle _{sub}
+        result = Regex("_\\{([^}]+)\\}").replace(result) { match ->
+            toSubscript(match.groupValues[1])
+        }
+        // Handle single _digit or _char
+        result = Regex("_([0-9a-z])").replace(result) { match ->
+            toSubscript(match.groupValues[1])
+        }
 
-    return result
+        result
+    } catch (_: Throwable) {
+        input
+    }
 }
 
 private fun toSuperscript(str: String): String {
@@ -1129,19 +1159,23 @@ private fun toSubscript(str: String): String {
 }
 
 fun formatChemistryFormula(chem: String): String {
-    var result = chem.trim()
-        .replace("->", " ⟶ ")
-        .replace("<->", " ⇄ ")
+    return try {
+        var result = chem.trim()
+            .replace("->", " ⟶ ")
+            .replace("<->", " ⇄ ")
 
-    // Subscript numbers in chemical formulas e.g. H2O -> H₂O, H2SO4 -> H₂SO₄, 2H2 + O2 -> 2H₂ + O₂
-    result = Regex("([A-Za-z\\)])(\\d+)").replace(result) { match ->
-        match.groupValues[1] + toSubscript(match.groupValues[2])
+        // Subscript numbers in chemical formulas e.g. H2O -> H₂O, H2SO4 -> H₂SO₄, 2H2 + O2 -> 2H₂ + O₂
+        result = Regex("([A-Za-z\\)])(\\d+)").replace(result) { match ->
+            match.groupValues[1] + toSubscript(match.groupValues[2])
+        }
+
+        // Superscript charges e.g. SO4^2- -> SO₄²⁻
+        result = Regex("\\^([0-9]+[+-]?)").replace(result) { match ->
+            toSuperscript(match.groupValues[1])
+        }
+
+        result.replace(Regex("\\s+"), " ")
+    } catch (_: Throwable) {
+        chem
     }
-
-    // Superscript charges e.g. SO4^2- -> SO₄²⁻
-    result = Regex("\\^([0-9]+[+-]?)").replace(result) { match ->
-        toSuperscript(match.groupValues[1])
-    }
-
-    return result.replace(Regex("\\s+"), " ")
 }

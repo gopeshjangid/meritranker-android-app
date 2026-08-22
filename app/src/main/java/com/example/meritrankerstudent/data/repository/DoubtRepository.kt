@@ -90,10 +90,10 @@ class DefaultDoubtRepository(
                     sender = "AI",
                     text = turn.finalAnswer,
                     timestamp = turn.createdAt + 10,
-                    actionRoute = turn.actionRoute ?: if (turn.practiceTestId != null) "QUIZ" else null,
-                    actionText = turn.actionText ?: if (turn.practiceTestId != null) "Start Practice" else null,
+                    actionRoute = turn.actionRoute,
+                    actionText = turn.actionText,
                     practiceTestId = turn.practiceTestId,
-                    practiceTitle = if (turn.practiceTestId != null) "Practice Quiz" else null
+                    practiceTitle = if (turn.practiceTestId != null) (turn.actionText ?: "Practice Quiz") else null
                 )
             )
         }
@@ -223,8 +223,8 @@ class DefaultDoubtRepository(
                                     text = finalAnswer,
                                     isThinking = false,
                                     thinkingStatus = null,
-                                    actionRoute = event.actionRoute ?: if (resolvedTestId != null || msg.practiceTestId != null) "QUIZ" else null,
-                                    actionText = event.actionText ?: if (resolvedTestId != null || msg.practiceTestId != null) "Start Practice" else null,
+                                    actionRoute = event.actionRoute ?: msg.actionRoute,
+                                    actionText = event.actionText ?: msg.actionText,
                                     practiceTestId = resolvedTestId ?: msg.practiceTestId,
                                     practiceTitle = event.title ?: msg.practiceTitle,
                                     practiceTotalQuestions = event.questionCount ?: msg.practiceTotalQuestions

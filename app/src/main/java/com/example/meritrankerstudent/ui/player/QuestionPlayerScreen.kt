@@ -42,7 +42,7 @@ fun QuestionPlayerScreen(
     onBack: () -> Unit,
     onFinish: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: QuestionPlayerViewModel = viewModel { QuestionPlayerViewModel(DefaultPracticeRepository(), mode, id) }
+    viewModel: QuestionPlayerViewModel = viewModel(key = "player_${mode}_$id") { QuestionPlayerViewModel(DefaultPracticeRepository(), mode, id) }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isDark = isSystemInDarkTheme()
@@ -149,12 +149,29 @@ fun QuestionPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Question ${uiState.currentIndex + 1} of ${uiState.questions.size}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column {
+                        Text(
+                            text = "Question ${uiState.currentIndex + 1} of ${uiState.questions.size}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (uiState.playerMode == PlayerMode.RESUME_ATTEMPT) {
+                            Text(
+                                text = "Resumed Attempt",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else if (uiState.playerMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT) {
+                            Text(
+                                text = "Review Mode",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
 
                     question.subject?.let { sub ->
                         Surface(
@@ -179,7 +196,7 @@ fun QuestionPlayerScreen(
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp)),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.outline
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
                 // Error banner if any
@@ -198,14 +215,14 @@ fun QuestionPlayerScreen(
                     }
                 }
 
-                // Question Text Card with Rich Educational Renderer
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    shape = RoundedCornerShape(8.dp)
+                // Question Box
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         EducationalContentRenderer(
                             content = question.question,
                             modifier = Modifier.fillMaxWidth()
@@ -213,9 +230,10 @@ fun QuestionPlayerScreen(
                     }
                 }
 
-                // Options list
+                // Options List
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     question.options.forEachIndexed { optIdx, optionText ->
                         val isSelected = selectedOptionText == optionText
@@ -246,7 +264,7 @@ fun QuestionPlayerScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !isLocked && !uiState.isChecking && !uiState.isSubmitting) {
+                                .clickable(enabled = !isLocked && uiState.playerMode != PlayerMode.REVIEW_COMPLETED_ATTEMPT && !uiState.isChecking && !uiState.isSubmitting) {
                                     viewModel.selectOption(questionId, optionText)
                                 },
                             colors = CardDefaults.cardColors(containerColor = cardColor),
@@ -293,7 +311,7 @@ fun QuestionPlayerScreen(
                 }
 
                 // Check Answer Button (Quiz Mode)
-                if (!isLocked && selectedOptionText != null) {
+                if (!isLocked && selectedOptionText != null && uiState.playerMode != PlayerMode.REVIEW_COMPLETED_ATTEMPT) {
                     Button(
                         onClick = { viewModel.checkAnswer(questionId) },
                         enabled = !uiState.isChecking && !uiState.isSubmitting,
@@ -383,11 +401,18 @@ fun QuestionPlayerScreen(
                     }
 
                     val isLast = uiState.currentIndex == uiState.questions.size - 1
-                    val nextButtonText = if (isLast) "Submit Attempt" else "Next Question"
+                    val isReview = uiState.playerMode == PlayerMode.REVIEW_COMPLETED_ATTEMPT
+                    val nextButtonText = when {
+                        isReview && isLast -> "Done"
+                        isLast -> "Submit Attempt"
+                        else -> "Next Question"
+                    }
 
                     Button(
                         onClick = {
-                            if (isLast) {
+                            if (isReview && isLast) {
+                                onBack()
+                            } else if (isLast) {
                                 viewModel.submitAttempt { result ->
                                     onFinish(
                                         ResultFeedback(

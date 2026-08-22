@@ -125,11 +125,11 @@ fun GuidedPracticeDetailScreen(
                 completed = false
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = { onStartPractice(QuestionPlayer("QUIZ", "q_02")) },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp), // Standard buttons: 8dp
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
