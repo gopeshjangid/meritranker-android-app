@@ -152,6 +152,30 @@ sealed class TelemetryEvent(
         params = mapOf("report_category" to category)
     )
 
+    data class ResponseSimilarClicked(
+        val examProfileId: String?,
+        val studyLanguage: String? = null
+    ) : TelemetryEvent(
+        eventName = "response_similar",
+        params = buildMap {
+            put("feature", "smart_tutor")
+            examProfileId?.let { put("exam_profile_id", it) }
+            studyLanguage?.let { put("study_language", it) }
+        }
+    )
+
+    data class ResponseSimplifyClicked(
+        val examProfileId: String?,
+        val studyLanguage: String? = null
+    ) : TelemetryEvent(
+        eventName = "response_simplify",
+        params = buildMap {
+            put("feature", "smart_tutor")
+            examProfileId?.let { put("exam_profile_id", it) }
+            studyLanguage?.let { put("study_language", it) }
+        }
+    )
+
     // -------------------------------------------------------------
     // Voice UX
     // -------------------------------------------------------------

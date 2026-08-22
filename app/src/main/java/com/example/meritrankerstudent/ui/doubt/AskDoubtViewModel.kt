@@ -682,13 +682,67 @@ class AskDoubtViewModel(
         }
     }
 
-    fun submitPromptDirectly(promptText: String) {
-        _uiState.update { it.copy(inputText = promptText) }
-        sendMessage(promptText)
+    private var lastPendingActionContext: com.example.meritrankerstudent.data.remote.ResolvedActionContext? = null
+
+    fun onSimilarClicked(message: DoubtMessage) {
+        android.util.Log.d("MeritRankerChat", "ACTION_SIMILAR_CLICKED messageId=${message.id} textLen=${message.text.length} isSending=${_uiState.value.isSending} isStreaming=${_uiState.value.isStreaming} isAiThinking=${_uiState.value.isAiThinking}")
+        if (_uiState.value.isSending || _uiState.value.isStreaming || _uiState.value.isAiThinking) return
+        val resolved = com.example.meritrankerstudent.data.remote.TutorActionContextResolver.resolveSimilarContext(
+            messages = _uiState.value.messages,
+            targetAssistantMessage = message
+        )
+        android.util.Log.d("MeritRankerChat", "ACTION_SIMILAR_RESOLVED resolvedNull=${resolved == null} queryLen=${resolved?.resolvedQuery?.length}")
+        if (resolved == null) return
+
+        lastPendingActionContext = resolved
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.ResponseSimilarClicked(
+                examProfileId = _uiState.value.examProfileId,
+                studyLanguage = _uiState.value.selectedLanguage
+            )
+        )
+        sendMessage(
+            explicitQuery = resolved.resolvedQuery,
+            displayText = resolved.displayText,
+            actionType = resolved.actionType
+        )
     }
 
-    // Unified Submission Path (Text, Voice Transcript, Image + Text)
-    fun sendMessage(explicitQuery: String? = null) {
+    fun onSimplifyClicked(message: DoubtMessage) {
+        android.util.Log.d("MeritRankerChat", "ACTION_SIMPLIFY_CLICKED messageId=${message.id} textLen=${message.text.length} isSending=${_uiState.value.isSending} isStreaming=${_uiState.value.isStreaming} isAiThinking=${_uiState.value.isAiThinking}")
+        if (_uiState.value.isSending || _uiState.value.isStreaming || _uiState.value.isAiThinking) return
+        val resolved = com.example.meritrankerstudent.data.remote.TutorActionContextResolver.resolveSimplifyContext(
+            messages = _uiState.value.messages,
+            targetAssistantMessage = message
+        )
+        android.util.Log.d("MeritRankerChat", "ACTION_SIMPLIFY_RESOLVED resolvedNull=${resolved == null} queryLen=${resolved?.resolvedQuery?.length}")
+        if (resolved == null) return
+
+        lastPendingActionContext = resolved
+        com.example.meritrankerstudent.observability.AppObservability.analytics.logEvent(
+            com.example.meritrankerstudent.observability.TelemetryEvent.ResponseSimplifyClicked(
+                examProfileId = _uiState.value.examProfileId,
+                studyLanguage = _uiState.value.selectedLanguage
+            )
+        )
+        sendMessage(
+            explicitQuery = resolved.resolvedQuery,
+            displayText = resolved.displayText,
+            actionType = resolved.actionType
+        )
+    }
+
+    fun submitPromptDirectly(promptText: String) {
+        _uiState.update { it.copy(inputText = promptText) }
+        sendMessage(explicitQuery = promptText)
+    }
+
+    // Unified Submission Path (Text, Voice Transcript, Image + Text, Response Actions)
+    fun sendMessage(
+        explicitQuery: String? = null,
+        displayText: String? = null,
+        actionType: String? = null
+    ) {
         val state = _uiState.value
         val trimmedQuery = (explicitQuery ?: state.inputText).trim()
         val attachmentUri = state.selectedAttachmentUri
@@ -696,6 +750,10 @@ class AskDoubtViewModel(
 
         if (trimmedQuery.isEmpty() && attachmentUri == null) return
         if (state.isSending || state.isAttachmentPreparing || state.attachmentError != null) return
+
+        if (actionType == null && explicitQuery == null) {
+            lastPendingActionContext = null
+        }
 
         val targetConvId = state.activeConversationId
         val targetTurnId = state.currentTurnId
@@ -746,6 +804,9 @@ class AskDoubtViewModel(
                 conversationId = targetConvId,
                 turnId = targetTurnId,
                 query = trimmedQuery,
+                displayText = displayText,
+                resolvedQuery = trimmedQuery,
+                actionType = actionType ?: "NORMAL",
                 language = state.selectedLanguage,
                 examProfileId = state.examProfileId,
                 examId = if (state.examProfileId.isNullOrBlank()) state.selectedExam else null,
@@ -847,6 +908,16 @@ class AskDoubtViewModel(
     }
 
     fun retrySendMessage() {
+        val pendingAction = lastPendingActionContext
+        if (pendingAction != null) {
+            sendMessage(
+                explicitQuery = pendingAction.resolvedQuery,
+                displayText = pendingAction.displayText,
+                actionType = pendingAction.actionType
+            )
+            return
+        }
+
         val lastMsg = _uiState.value.messages.lastOrNull { it.sender == "USER" }
         if (lastMsg != null) {
             _uiState.update { it.copy(selectedAttachmentUri = lastMsg.imageUri) }

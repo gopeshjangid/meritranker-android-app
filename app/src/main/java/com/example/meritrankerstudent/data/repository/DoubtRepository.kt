@@ -105,13 +105,22 @@ class DefaultDoubtRepository(
         onChunk: (String) -> Unit
     ): DoubtMessage {
         activeConversationId = request.conversationId
-        android.util.Log.d("MeritRankerChat", "TUTOR_REQUEST_STARTED conversationId=${request.conversationId} turnId=${request.turnId}")
+        val userMessageText = request.displayText?.ifBlank { null }
+            ?: request.query.ifEmpty { "📷 Attached Question Image" }
+        val transportQuery = request.resolvedQuery?.ifBlank { null }
+            ?: request.query
+        val actionType = request.actionType ?: "NORMAL"
+
+        android.util.Log.d(
+            "MeritRankerChat",
+            "TUTOR_REQUEST_STARTED conversationId=${request.conversationId} turnId=${request.turnId} queryLen=${transportQuery.length} actionType=$actionType"
+        )
 
         val payload = TutorRequestPayload(
             conversationId = request.conversationId,
             turnId = request.turnId,
             userId = request.userId,
-            query = request.query,
+            query = transportQuery,
             examProfileId = request.examProfileId,
             examId = request.examId,
             examStage = request.examStage,
@@ -123,9 +132,10 @@ class DefaultDoubtRepository(
         val userMessage = DoubtMessage(
             id = "user_${request.turnId}",
             sender = "USER",
-            text = request.query.ifEmpty { "📷 Attached Question Image" },
+            text = userMessageText,
             timestamp = System.currentTimeMillis(),
-            imageUri = request.imageUri
+            imageUri = request.imageUri,
+            actionType = request.actionType
         )
 
         val aiPlaceholder = DoubtMessage(
@@ -293,7 +303,7 @@ class DefaultDoubtRepository(
             id = request.turnId,
             conversationId = request.conversationId,
             userId = request.userId,
-            originalQuery = request.query.ifEmpty { "Attached Question Image" },
+            originalQuery = userMessageText,
             finalAnswer = accumulatedAnswer,
             examId = request.examId,
             language = request.language,
@@ -313,7 +323,7 @@ class DefaultDoubtRepository(
             ConversationSession(
                 id = request.conversationId,
                 userId = request.userId,
-                title = request.query.take(40).ifEmpty { "AI Tutor Image Doubt" },
+                title = userMessageText.take(40).ifEmpty { "AI Tutor Image Doubt" },
                 lastActivityAt = System.currentTimeMillis(),
                 examId = request.examId,
                 language = request.language

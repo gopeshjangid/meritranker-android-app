@@ -527,10 +527,10 @@ fun AskDoubtScreen(
                                     }
                                 },
                                 onSimilarClick = {
-                                    onActionClick(QuizList)
+                                    viewModel.onSimilarClicked(message)
                                 },
                                 onSimplifyClick = {
-                                    viewModel.submitPromptDirectly("Explain this concept in simpler words with an example")
+                                    viewModel.onSimplifyClicked(message)
                                 },
                                 onReportClick = { messageId ->
                                     viewModel.openReportDialog(messageId)
@@ -2041,6 +2041,7 @@ fun DoubtMessageBubble(
 
                 // Clean Unified AI Response Utilities (Copy, Share, Similar, Simplify, Report) - Exactly 1 Row
                 if (!isUser && message.text.isNotBlank()) {
+                    val actionsEnabled = !isStreaming && !message.isThinking && message.errorMessage == null && message.text.isNotBlank()
                     Spacer(modifier = Modifier.height(10.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(6.dp))
@@ -2056,6 +2057,7 @@ fun DoubtMessageBubble(
                             icon = Icons.Default.Edit,
                             label = "Copy",
                             talkBackDescription = "Copy answer as image",
+                            enabled = actionsEnabled,
                             onClick = { onCopyClick(message.text) },
                             modifier = Modifier.weight(1f)
                         )
@@ -2065,6 +2067,7 @@ fun DoubtMessageBubble(
                             icon = Icons.Default.Share,
                             label = "Share",
                             talkBackDescription = "Share answer as image",
+                            enabled = actionsEnabled,
                             onClick = { onShareClick(message.text) },
                             modifier = Modifier.weight(1f)
                         )
@@ -2075,6 +2078,7 @@ fun DoubtMessageBubble(
                             label = "Similar",
                             talkBackDescription = "Create similar question",
                             isAccent = true,
+                            enabled = actionsEnabled,
                             onClick = onSimilarClick,
                             modifier = Modifier.weight(1f)
                         )
@@ -2084,6 +2088,7 @@ fun DoubtMessageBubble(
                             icon = Icons.Default.Refresh,
                             label = "Simplify",
                             talkBackDescription = "Simplify explanation",
+                            enabled = actionsEnabled,
                             onClick = onSimplifyClick,
                             modifier = Modifier.weight(1f)
                         )
@@ -2093,6 +2098,7 @@ fun DoubtMessageBubble(
                             icon = Icons.Default.Warning,
                             label = "Report",
                             talkBackDescription = "Report response",
+                            enabled = actionsEnabled,
                             onClick = { onReportClick(message.id) },
                             modifier = Modifier.weight(1f)
                         )
@@ -2120,15 +2126,20 @@ private fun ResponseToolbarAction(
     label: String,
     talkBackDescription: String,
     isAccent: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = if (isAccent) {
+    val bgColor = if (!enabled) {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+    } else if (isAccent) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
     } else {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     }
-    val contentColor = if (isAccent) {
+    val contentColor = if (!enabled) {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+    } else if (isAccent) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
@@ -2136,6 +2147,7 @@ private fun ResponseToolbarAction(
 
     Surface(
         onClick = onClick,
+        enabled = enabled,
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
         modifier = modifier
@@ -2159,8 +2171,8 @@ private fun ResponseToolbarAction(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
-                fontWeight = if (isAccent) FontWeight.Bold else FontWeight.Medium,
-                color = if (isAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isAccent && enabled) FontWeight.Bold else FontWeight.Medium,
+                color = if (isAccent && enabled) MaterialTheme.colorScheme.primary else contentColor,
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis

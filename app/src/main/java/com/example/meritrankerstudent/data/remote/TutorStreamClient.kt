@@ -111,7 +111,8 @@ class TutorStreamClient(
         authToken: String? = null
     ): Flow<TutorStreamEvent> = flow {
         val jsonBody = buildJsonPayload(payload).toString()
-        Log.i(TAG, "TUTOR_STREAM_REQUEST_INIT convId=${payload.conversationId} turnId=${payload.turnId} mode=${payload.mode} lang=${payload.language} query='${payload.query.take(60)}'")
+        val queryHash = payload.query.hashCode().toString(16)
+        Log.i(TAG, "TUTOR_STREAM_REQUEST_INIT convId=${payload.conversationId} turnId=${payload.turnId} mode=${payload.mode} lang=${payload.language} queryLen=${payload.query.length} queryHash=$queryHash")
 
         val candidateUrls = buildList {
             // 1. Configured base endpoint if present
@@ -123,16 +124,16 @@ class TutorStreamClient(
                     add("${BuildConfig.TUTOR_API_BASE_URL}/api/dev/doubt-solver")
                 }
             }
-            // 2. Direct IPv4 loopback AgentCore invocation (adb reverse tcp:8080 on physical device)
-            add("http://127.0.0.1:8080/invocations")
-            add("http://127.0.0.1:3000/api/dev/doubt-solver")
-            add("http://localhost:8080/invocations")
-            add("http://localhost:3000/api/dev/doubt-solver")
-            add(endpointUrl)
+            // 2. Direct IPv4 loopback AgentCore invocation only for DEBUG builds
             if (BuildConfig.DEBUG) {
+                add("http://127.0.0.1:8080/invocations")
+                add("http://127.0.0.1:3000/api/dev/doubt-solver")
+                add("http://localhost:8080/invocations")
+                add("http://localhost:3000/api/dev/doubt-solver")
                 add("http://10.0.2.2:8080/invocations")
                 add("http://10.0.2.2:3000/api/dev/doubt-solver")
             }
+            add(endpointUrl)
         }.distinct()
 
         var response: okhttp3.Response? = null

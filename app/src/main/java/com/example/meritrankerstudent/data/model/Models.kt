@@ -56,6 +56,7 @@ data class DoubtMessage(
     val timestamp: Long,
     val actionText: String? = null,
     val actionRoute: String? = null, // e.g. "QUIZ", "MOCK", "PYQ"
+    val actionType: String? = null, // "NORMAL", "SIMILAR", "SIMPLIFY"
     val imageUri: String? = null,
     val practiceTestId: String? = null,
     val isPracticeGenerating: Boolean = false,

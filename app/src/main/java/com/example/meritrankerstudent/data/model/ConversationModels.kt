@@ -36,6 +36,9 @@ data class DoubtRequest(
     val conversationId: String,
     val turnId: String = UUID.randomUUID().toString(),
     val query: String,
+    val displayText: String? = null,
+    val resolvedQuery: String? = null,
+    val actionType: String? = null, // "NORMAL", "SIMILAR", "SIMPLIFY"
     val language: String = "english",
     val examProfileId: String? = null,
     val examId: String? = null,
