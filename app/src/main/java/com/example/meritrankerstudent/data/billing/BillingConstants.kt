@@ -16,6 +16,7 @@ object BillingConstants {
         CreditPackConfig(
             localPlanId = "pack_500",
             googlePlayProductId = "meritranker_credits_500",
+            purchaseOptionId = "buy-500",
             credits = 500,
             displayLabel = "500 Credits",
             sortOrder = 1,
@@ -25,6 +26,7 @@ object BillingConstants {
         CreditPackConfig(
             localPlanId = "pack_1000",
             googlePlayProductId = "meritranker_credits_1000",
+            purchaseOptionId = "buy-1000",
             credits = 1000,
             displayLabel = "1000 Credits",
             sortOrder = 2,
@@ -34,6 +36,7 @@ object BillingConstants {
         CreditPackConfig(
             localPlanId = "pack_1500",
             googlePlayProductId = "meritranker_credits_1500",
+            purchaseOptionId = "buy-1500",
             credits = 1500,
             displayLabel = "1500 Credits",
             sortOrder = 3,

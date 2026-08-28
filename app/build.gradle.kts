@@ -13,8 +13,8 @@ android {
         applicationId = "com.bytechminds.meritranker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
         buildConfigField("String", "TUTOR_API_BASE_URL", "\"http://127.0.0.1:8080\"")
         buildConfigField("boolean", "ENABLE_DEBUG_TELEMETRY", project.findProperty("enableDebugTelemetry")?.toString() ?: "false")
     }
@@ -27,12 +27,18 @@ android {
 
     signingConfigs {
         create("release") {
+            val localReleaseKeystore = file("meritranker-release.keystore")
             val keystoreFile = project.findProperty("RELEASE_STORE_FILE") as? String ?: System.getenv("RELEASE_STORE_FILE")
             if (keystoreFile != null && file(keystoreFile).exists()) {
                 storeFile = file(keystoreFile)
                 storePassword = project.findProperty("RELEASE_STORE_PASSWORD") as? String ?: System.getenv("RELEASE_STORE_PASSWORD") ?: ""
                 keyAlias = project.findProperty("RELEASE_KEY_ALIAS") as? String ?: System.getenv("RELEASE_KEY_ALIAS") ?: ""
                 keyPassword = project.findProperty("RELEASE_KEY_PASSWORD") as? String ?: System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+            } else if (localReleaseKeystore.exists()) {
+                storeFile = localReleaseKeystore
+                storePassword = project.findProperty("RELEASE_STORE_PASSWORD") as? String ?: System.getenv("RELEASE_STORE_PASSWORD") ?: "meritranker@2025"
+                keyAlias = project.findProperty("RELEASE_KEY_ALIAS") as? String ?: System.getenv("RELEASE_KEY_ALIAS") ?: "meritranker_key"
+                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD") as? String ?: System.getenv("RELEASE_KEY_PASSWORD") ?: "meritranker@2025"
             } else {
                 val debugKeystore = file("${System.getProperty("user.home")}/.android/debug.keystore")
                 if (debugKeystore.exists()) {

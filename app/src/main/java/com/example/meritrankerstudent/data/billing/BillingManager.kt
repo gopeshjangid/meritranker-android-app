@@ -174,6 +174,21 @@ class BillingManager private constructor(
                     productDetailsMap.clear()
                     for (pd in fetchedDetails) {
                         productDetailsMap[pd.productId] = pd
+                        val oneTimeList = pd.oneTimePurchaseOfferDetailsList
+                        if (oneTimeList != null && oneTimeList.isNotEmpty()) {
+                            Log.i(tag, "Product ${pd.productId} has ${oneTimeList.size} eligible oneTimePurchaseOfferDetails:")
+                            for (offer in oneTimeList) {
+                                val optionId = offer.purchaseOptionId
+                                val offerId = offer.offerId
+                                val price = offer.formattedPrice
+                                val token = offer.offerToken ?: ""
+                                Log.i(tag, "  -> productId=${pd.productId}, purchaseOptionId=$optionId, offerId=$offerId, formattedPrice=$price, offerTokenPresent=${token.isNotBlank()}, offerTokenLength=${token.length}")
+                            }
+                        } else {
+                            val singleOffer = pd.oneTimePurchaseOfferDetails
+                            val singleToken = singleOffer?.offerToken ?: ""
+                            Log.i(tag, "Product ${pd.productId} has single oneTimePurchaseOfferDetails: formattedPrice=${singleOffer?.formattedPrice}, offerTokenPresent=${singleToken.isNotBlank()}, offerTokenLength=${singleToken.length}")
+                        }
                     }
                 }
 
@@ -194,12 +209,20 @@ class BillingManager private constructor(
         val updatedItems = customPacks.map { config ->
             val pd = detailsMap[config.googlePlayProductId]
             val playProductDetails = pd?.let {
-                val oneTimeOffer = it.oneTimePurchaseOfferDetails
+                val oneTimeList = it.oneTimePurchaseOfferDetailsList
+                val selectedOffer = if (!config.purchaseOptionId.isNullOrBlank() && oneTimeList != null) {
+                    oneTimeList.firstOrNull { offer -> offer.purchaseOptionId == config.purchaseOptionId }
+                        ?: oneTimeList.firstOrNull()
+                        ?: it.oneTimePurchaseOfferDetails
+                } else {
+                    oneTimeList?.firstOrNull() ?: it.oneTimePurchaseOfferDetails
+                }
+
                 PlayProductDetails(
                     productId = it.productId,
-                    formattedPrice = oneTimeOffer?.formattedPrice ?: "Price Unavailable",
-                    priceAmountMicros = oneTimeOffer?.priceAmountMicros ?: 0L,
-                    priceCurrencyCode = oneTimeOffer?.priceCurrencyCode ?: "INR",
+                    formattedPrice = selectedOffer?.formattedPrice ?: "Price Unavailable",
+                    priceAmountMicros = selectedOffer?.priceAmountMicros ?: 0L,
+                    priceCurrencyCode = selectedOffer?.priceCurrencyCode ?: "INR",
                     title = it.title,
                     description = it.description,
                     rawProductDetails = it
@@ -219,7 +242,7 @@ class BillingManager private constructor(
 
     /**
      * Launches the real Google Play Billing Sheet for a chosen one-time credit pack.
-     * Includes double-tap protection, connection verification, and product resolution.
+     * Includes double-tap protection, connection verification, purchaseOption resolution, and offerToken selection.
      */
     fun launchPurchase(activity: Activity, packConfig: CreditPackConfig): Boolean {
         val currentTime = SystemClock.elapsedRealtime()
@@ -264,14 +287,42 @@ class BillingManager private constructor(
             return false
         }
 
+        // Select exact purchase option
+        val oneTimeList = productDetails.oneTimePurchaseOfferDetailsList
+        val selectedOffer = if (!packConfig.purchaseOptionId.isNullOrBlank() && oneTimeList != null) {
+            oneTimeList.firstOrNull { it.purchaseOptionId == packConfig.purchaseOptionId }
+                ?: oneTimeList.firstOrNull()
+                ?: productDetails.oneTimePurchaseOfferDetails
+        } else {
+            oneTimeList?.firstOrNull() ?: productDetails.oneTimePurchaseOfferDetails
+        }
+
+        if (selectedOffer == null) {
+            Log.e(tag, "No eligible one-time purchase offer found for productId=${packConfig.googlePlayProductId}")
+            _billingState.value = BillingState.Error(
+                userMessage = "No eligible purchase option available for this pack.",
+                responseCode = BillingClient.BillingResponseCode.ITEM_UNAVAILABLE
+            )
+            return false
+        }
+
+        val offerToken = selectedOffer.offerToken ?: ""
+        Log.i(
+            tag,
+            "Selected offer for launch: productId=${packConfig.googlePlayProductId}, purchaseOptionId=${selectedOffer.purchaseOptionId}, offerId=${selectedOffer.offerId}, formattedPrice=${selectedOffer.formattedPrice}, offerTokenPresent=${offerToken.isNotBlank()}, offerTokenLength=${offerToken.length}"
+        )
+
         _billingState.value = BillingState.Launching(localPlanId = packConfig.localPlanId)
         pendingLaunchPlanId = packConfig.localPlanId
 
-        val productDetailsParamsList = listOf(
-            BillingFlowParams.ProductDetailsParams.newBuilder()
-                .setProductDetails(productDetails)
-                .build()
-        )
+        val productDetailsParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+            .setProductDetails(productDetails)
+
+        if (offerToken.isNotBlank()) {
+            productDetailsParamsBuilder.setOfferToken(offerToken)
+        }
+
+        val productDetailsParamsList = listOf(productDetailsParamsBuilder.build())
 
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(productDetailsParamsList)
@@ -282,6 +333,7 @@ class BillingManager private constructor(
 
         val billingResult = billingClient.launchBillingFlow(activity, flowParams)
         val responseCode = billingResult.responseCode
+        Log.i(tag, "launchBillingFlow returned: code=$responseCode, message=${billingResult.debugMessage}")
 
         if (responseCode != BillingClient.BillingResponseCode.OK) {
             Log.e(tag, "launchBillingFlow returned error: code=$responseCode, message=${billingResult.debugMessage}")

@@ -11,6 +11,7 @@ import java.security.MessageDigest
 data class CreditPackConfig(
     val localPlanId: String,
     val googlePlayProductId: String,
+    val purchaseOptionId: String? = null,
     val credits: Int,
     val displayLabel: String,
     val sortOrder: Int = 0,
