@@ -36,12 +36,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import com.example.meritrankerstudent.ui.subscription.SubscriptionPlanSheet
-import com.example.meritrankerstudent.ui.subscription.PurchaseReceiptsSheet
-import com.example.meritrankerstudent.ui.subscription.SubscriptionViewModel
+import androidx.compose.material.icons.filled.ElectricBolt
+import com.example.meritrankerstudent.ui.billing.CreditPackStoreSheet
+import com.example.meritrankerstudent.ui.billing.CreditStoreViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,16 +47,14 @@ fun ProfileSettingsScreen(
     modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
-    subscriptionViewModel: SubscriptionViewModel = viewModel()
+    creditStoreViewModel: CreditStoreViewModel = viewModel()
 ) {
     val uiState by profileViewModel.uiState.collectAsStateWithLifecycle()
-    val activeSubscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showExamBottomSheet by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showFeedbackBottomSheet by remember { mutableStateOf(false) }
-    var showSubscriptionSheet by remember { mutableStateOf(false) }
-    var showReceiptsSheet by remember { mutableStateOf(false) }
+    var showCreditStoreSheet by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -284,14 +279,11 @@ fun ProfileSettingsScreen(
                             }
                         }
 
-                        // ==================== MEMBERSHIP & SUBSCRIPTIONS CARD ====================
+                        // ==================== CREDITS SECTION CARD ====================
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(
-                                width = if (activeSubscription != null) 1.5.dp else 1.dp,
-                                color = if (activeSubscription != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
@@ -302,14 +294,14 @@ fun ProfileSettingsScreen(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            imageVector = Icons.Default.Star,
+                                            imageVector = Icons.Default.ElectricBolt,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Membership & Plan",
+                                            text = "Credits",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -317,15 +309,12 @@ fun ProfileSettingsScreen(
                                     }
 
                                     Surface(
-                                        color = if (activeSubscription != null)
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = if (activeSubscription != null) "PRO ACTIVE" else "FREE TIER",
-                                            color = if (activeSubscription != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            text = "AI Balance",
+                                            color = MaterialTheme.colorScheme.primary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -333,51 +322,44 @@ fun ProfileSettingsScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = if (activeSubscription != null)
-                                        "You have full access to Unlimited AI Smart Tutor, AI Mock Tests, Detailed Solutions & Analytics."
-                                    else
-                                        "Upgrade to MeritRanker Pro for unlimited AI doubt solving, full mock tests & step-by-step solutions.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Column {
+                                        Text(
+                                            text = "Current credits",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Available for tests, mocks & practice",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+
                                     Button(
-                                        onClick = { showSubscriptionSheet = true },
+                                        onClick = { showCreditStoreSheet = true },
                                         shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f)
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Star,
+                                            imageVector = Icons.Default.ElectricBolt,
                                             contentDescription = null,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = if (activeSubscription != null) "Manage Plan" else "Upgrade to Pro",
+                                            text = "Buy Credits",
                                             fontWeight = FontWeight.Bold
                                         )
-                                    }
-
-                                    OutlinedButton(
-                                        onClick = { showReceiptsSheet = true },
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Receipts")
                                     }
                                 }
                             }
@@ -935,19 +917,11 @@ fun ProfileSettingsScreen(
                         )
                     }
 
-                    // MeritRanker Pro Subscription Plan Modal Bottom Sheet
-                    if (showSubscriptionSheet) {
-                        SubscriptionPlanSheet(
-                            viewModel = subscriptionViewModel,
-                            onDismiss = { showSubscriptionSheet = false }
-                        )
-                    }
-
-                    // Purchase History & Receipts Modal Bottom Sheet
-                    if (showReceiptsSheet) {
-                        PurchaseReceiptsSheet(
-                            viewModel = subscriptionViewModel,
-                            onDismiss = { showReceiptsSheet = false }
+                    // MeritRanker Credit Pack Store Modal Bottom Sheet
+                    if (showCreditStoreSheet) {
+                        CreditPackStoreSheet(
+                            viewModel = creditStoreViewModel,
+                            onDismiss = { showCreditStoreSheet = false }
                         )
                     }
                 }

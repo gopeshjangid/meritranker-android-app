@@ -2,629 +2,450 @@ package com.example.meritrankerstudent.data.billing
 
 import android.app.Activity
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.android.billingclient.api.*
-import com.example.meritrankerstudent.data.repository.AuthRepository
-import com.example.meritrankerstudent.data.repository.DefaultAuthRepository
-import com.example.meritrankerstudent.data.repository.DefaultPurchaseTransactionRepository
-import com.example.meritrankerstudent.data.repository.PurchaseTransactionRepository
+import com.example.meritrankerstudent.observability.AppObservability
+import com.example.meritrankerstudent.observability.TelemetryEvent
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONObject
-import java.util.UUID
 
-class BillingManager(
+/**
+ * Single application-scoped BillingManager for Google Play Billing (PBL 9.1.0).
+ * 
+ * Strict Phase 1 Requirements:
+ * - One-time credit pack purchases only (ProductType.INAPP)
+ * - NO subscriptions
+ * - NO recurring billing
+ * - Authoritative Google-localized pricing from ProductDetails.oneTimePurchaseOfferDetails
+ * - Zero calls to consumePurchase() (deferred until backend credit verification)
+ * - Zero calls to acknowledgePurchase()
+ * - Zero client-side credit granting (stops at PURCHASED_UNVERIFIED)
+ * - Double-tap protection
+ * - Safe token fingerprinting (SHA-256)
+ * - Purchase recovery via queryPurchasesAsync on connect and app resume
+ */
+class BillingManager private constructor(
     private val context: Context,
-    private val authRepository: AuthRepository = DefaultAuthRepository(),
-    private val transactionRepository: PurchaseTransactionRepository = DefaultPurchaseTransactionRepository(context),
-    private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val customPacks: List<CreditPackConfig> = BillingConstants.DEFAULT_CREDIT_PACKS
 ) : PurchasesUpdatedListener, BillingClientStateListener {
 
     private val tag = "MeritRankerBilling"
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private val _uiState = MutableStateFlow<BillingUiState>(BillingUiState.Idle)
-    val uiState: StateFlow<BillingUiState> = _uiState.asStateFlow()
+    private var billingClient: BillingClient = BillingClient.newBuilder(context)
+        .setListener(this)
+        .enablePendingPurchases(
+            PendingPurchasesParams.newBuilder()
+                .enableOneTimeProducts()
+                .build()
+        )
+        .build()
 
-    private val _availableProducts = MutableStateFlow<List<PlayProductDetails>>(BillingConstants.DEFAULT_PRODUCTS)
-    val availableProducts: StateFlow<List<PlayProductDetails>> = _availableProducts.asStateFlow()
+    private val _billingState = MutableStateFlow<BillingState>(BillingState.Idle)
+    val billingState: StateFlow<BillingState> = _billingState.asStateFlow()
 
-    private val _activeSubscription = MutableStateFlow<PurchaseTransactionRecord?>(null)
-    val activeSubscription: StateFlow<PurchaseTransactionRecord?> = _activeSubscription.asStateFlow()
+    private val _packItemStates = MutableStateFlow<List<CreditPackItemState>>(emptyList())
+    val packItemStates: StateFlow<List<CreditPackItemState>> = _packItemStates.asStateFlow()
 
-    private val _recentTransactions = MutableStateFlow<List<PurchaseTransactionRecord>>(emptyList())
-    val recentTransactions: StateFlow<List<PurchaseTransactionRecord>> = _recentTransactions.asStateFlow()
+    private val productDetailsMap = mutableMapOf<String, ProductDetails>()
 
-    private val cachedProductDetailsMap = mutableMapOf<String, ProductDetails>()
+    private var lastPurchaseLaunchTimestamp = 0L
+    private val launchDebounceThresholdMs = 1200L
 
-    private val billingClient: BillingClient by lazy {
-        BillingClient.newBuilder(context.applicationContext)
-            .setListener(this)
-            .enablePendingPurchases(
-                PendingPurchasesParams.newBuilder()
-                    .enableOneTimeProducts()
-                    .enablePrepaidPlans()
-                    .build()
-            )
-            .build()
-    }
+    private var pendingLaunchPlanId: String? = null
+
+    // Future backend callback boundary
+    var onPlayPurchaseDetectedListener: ((DetectedPurchasePayload) -> Unit)? = null
 
     init {
+        initializePackStatePlaceholders()
         startBillingConnection()
-        observeLocalTransactions()
+    }
+
+    private fun initializePackStatePlaceholders() {
+        val initialItems = customPacks.map { config ->
+            CreditPackItemState(
+                config = config,
+                googleProductDetails = null,
+                isAvailable = false,
+                isConfigured = config.isConfigured
+            )
+        }
+        _packItemStates.value = initialItems
+        _billingState.value = BillingState.Ready(packs = initialItems, isConnected = false)
     }
 
     fun startBillingConnection() {
-        if (!billingClient.isReady) {
-            _uiState.value = BillingUiState.Connecting
-            Log.d(tag, "Starting BillingClient connection...")
-            billingClient.startConnection(this)
+        if (billingClient.isReady) {
+            Log.d(tag, "BillingClient is already connected and ready.")
+            queryProductCatalog()
+            reconcilePurchases()
+            return
         }
+
+        _billingState.value = BillingState.Connecting
+        Log.i(tag, "Connecting to Google Play Billing Service (PBL 9.1.0)...")
+        billingClient.startConnection(this)
     }
 
     override fun onBillingSetupFinished(billingResult: BillingResult) {
         val responseCode = billingResult.responseCode
         val debugMessage = billingResult.debugMessage
-        Log.d(tag, "onBillingSetupFinished: code=$responseCode, message=$debugMessage")
 
         if (responseCode == BillingClient.BillingResponseCode.OK) {
-            queryAvailableProducts()
+            Log.i(tag, "Google Play BillingClient setup finished successfully.")
+            queryProductCatalog()
             reconcilePurchases()
         } else {
-            Log.w(tag, "Billing setup failed with code $responseCode: $debugMessage")
-            // Fall back to default product catalog for offline / debug viewing
-            _uiState.value = BillingUiState.Ready(
-                products = _availableProducts.value,
-                activeSubscription = _activeSubscription.value,
-                recentTransactions = _recentTransactions.value
-            )
+            Log.e(tag, "Google Play BillingClient setup failed: code=$responseCode, message=$debugMessage")
+            val userMsg = mapResponseCodeToUserMessage(responseCode, debugMessage)
+            _billingState.value = BillingState.Error(userMessage = userMsg, responseCode = responseCode)
+            _packItemStates.value = customPacks.map { config ->
+                CreditPackItemState(
+                    config = config,
+                    googleProductDetails = null,
+                    isAvailable = false,
+                    isConfigured = config.isConfigured
+                )
+            }
         }
     }
 
     override fun onBillingServiceDisconnected() {
-        Log.w(tag, "Billing service disconnected. Will reconnect on next user action.")
-    }
-
-    fun queryAvailableProducts() {
+        Log.w(tag, "Google Play Billing service disconnected. Scheduling auto-reconnection...")
+        _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = false)
         coroutineScope.launch {
+            delay(3000)
             if (!billingClient.isReady) {
-                Log.d(tag, "BillingClient not ready for product query. Reconnecting...")
+                Log.d(tag, "Retrying Google Play Billing connection...")
                 startBillingConnection()
-                return@launch
-            }
-
-            try {
-                // 1. Query Subscriptions
-                val subsProductList = BillingConstants.ALL_SUBSCRIPTION_IDS.map { productId ->
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(productId)
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                }
-
-                val subsParams = QueryProductDetailsParams.newBuilder()
-                    .setProductList(subsProductList)
-                    .build()
-
-                val subsResult = billingClient.queryProductDetails(subsParams)
-
-                // 2. Query In-App Products
-                val inAppProductList = BillingConstants.ALL_IN_APP_IDS.map { productId ->
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(productId)
-                        .setProductType(BillingClient.ProductType.INAPP)
-                        .build()
-                }
-
-                val inAppParams = QueryProductDetailsParams.newBuilder()
-                    .setProductList(inAppProductList)
-                    .build()
-
-                val inAppResult = billingClient.queryProductDetails(inAppParams)
-
-                val combinedProductDetails = mutableListOf<ProductDetails>()
-                if (subsResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    subsResult.productDetailsList?.let { combinedProductDetails.addAll(it) }
-                }
-                if (inAppResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    inAppResult.productDetailsList?.let { combinedProductDetails.addAll(it) }
-                }
-
-                val mappedProducts = if (combinedProductDetails.isNotEmpty()) {
-                    combinedProductDetails.map { pd ->
-                        cachedProductDetailsMap[pd.productId] = pd
-                        mapGooglePlayProductDetails(pd)
-                    }
-                } else {
-                    Log.d(tag, "No products returned from Play Store. Using configured catalog.")
-                    BillingConstants.DEFAULT_PRODUCTS
-                }
-
-                _availableProducts.value = mappedProducts
-                _uiState.value = BillingUiState.Ready(
-                    products = mappedProducts,
-                    activeSubscription = _activeSubscription.value,
-                    recentTransactions = _recentTransactions.value
-                )
-                Log.d(tag, "Loaded ${mappedProducts.size} products successfully.")
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to query products from Google Play", e)
-                _uiState.value = BillingUiState.Ready(
-                    products = BillingConstants.DEFAULT_PRODUCTS,
-                    activeSubscription = _activeSubscription.value,
-                    recentTransactions = _recentTransactions.value
-                )
             }
         }
     }
 
-    private fun mapGooglePlayProductDetails(pd: ProductDetails): PlayProductDetails {
-        val isSubscription = pd.productType == BillingClient.ProductType.SUBS
-        val productType = if (isSubscription) ProductType.SUBSCRIPTION else ProductType.IN_APP
-
-        var formattedPrice = "₹"
-        var priceAmountMicros = 0L
-        var priceCurrencyCode = "INR"
-        var billingPeriod: String? = null
-        var offerToken: String? = null
-
-        if (isSubscription) {
-            val offerDetails = pd.subscriptionOfferDetails?.firstOrNull()
-            offerToken = offerDetails?.offerToken
-            val pricingPhase = offerDetails?.pricingPhases?.pricingPhaseList?.firstOrNull()
-            if (pricingPhase != null) {
-                formattedPrice = pricingPhase.formattedPrice
-                priceAmountMicros = pricingPhase.priceAmountMicros
-                priceCurrencyCode = pricingPhase.priceCurrencyCode
-                billingPeriod = pricingPhase.billingPeriod
-            }
-        } else {
-            val oneTime = pd.oneTimePurchaseOfferDetails
-            if (oneTime != null) {
-                formattedPrice = oneTime.formattedPrice
-                priceAmountMicros = oneTime.priceAmountMicros
-                priceCurrencyCode = oneTime.priceCurrencyCode
-            }
-        }
-
-        val features = when (pd.productId) {
-            BillingConstants.PRODUCT_PRO_MONTHLY, BillingConstants.PRODUCT_PRO_YEARLY -> BillingConstants.PRO_FEATURES
-            BillingConstants.PRODUCT_CREDITS_100 -> BillingConstants.CREDITS_FEATURES
-            BillingConstants.PRODUCT_MOCK_PACK_10 -> BillingConstants.MOCKS_FEATURES
-            else -> emptyList()
-        }
-
-        val badge = when (pd.productId) {
-            BillingConstants.PRODUCT_PRO_YEARLY -> "Save 33% • Best Value"
-            BillingConstants.PRODUCT_PRO_MONTHLY -> "Flexible"
-            BillingConstants.PRODUCT_CREDITS_100 -> "Booster"
-            BillingConstants.PRODUCT_MOCK_PACK_10 -> "Exam Ready"
-            else -> null
-        }
-
-        return PlayProductDetails(
-            productId = pd.productId,
-            productType = productType,
-            title = pd.title.removeSuffix(" (MeritRanker)").trim(),
-            description = pd.description,
-            formattedPrice = formattedPrice,
-            priceAmountMicros = priceAmountMicros,
-            priceCurrencyCode = priceCurrencyCode,
-            billingPeriod = billingPeriod,
-            offerToken = offerToken,
-            features = features,
-            badge = badge
-        )
-    }
-
-    fun launchPurchase(
-        activity: Activity,
-        product: PlayProductDetails,
-        selectedOfferToken: String? = null
-    ) {
-        _uiState.value = BillingUiState.Purchasing(product.productId)
-
-        coroutineScope.launch {
-            if (!billingClient.isReady) {
-                Log.w(tag, "BillingClient not ready when launching purchase. Connecting...")
-                billingClient.startConnection(object : BillingClientStateListener {
-                    override fun onBillingSetupFinished(billingResult: BillingResult) {
-                        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                            executeLaunchBillingFlow(activity, product, selectedOfferToken)
-                        } else {
-                            recordTransactionError(
-                                productId = product.productId,
-                                productTitle = product.title,
-                                productType = product.productType,
-                                responseCode = billingResult.responseCode,
-                                message = "Google Play connection failed: ${billingResult.debugMessage}"
-                            )
-                        }
-                    }
-
-                    override fun onBillingServiceDisconnected() {
-                        recordTransactionError(
-                            productId = product.productId,
-                            productTitle = product.title,
-                            productType = product.productType,
-                            responseCode = BillingClient.BillingResponseCode.SERVICE_DISCONNECTED,
-                            message = "Google Play billing service disconnected"
-                        )
-                    }
-                })
-            } else {
-                executeLaunchBillingFlow(activity, product, selectedOfferToken)
-            }
-        }
-    }
-
-    private fun executeLaunchBillingFlow(
-        activity: Activity,
-        product: PlayProductDetails,
-        selectedOfferToken: String?
-    ) {
-        val cachedPd = cachedProductDetailsMap[product.productId]
-
-        if (cachedPd == null) {
-            Log.w(tag, "ProductDetails not cached for ${product.productId}. Running simulated flow for sandbox.")
-            // Simulate sandbox transaction for offline / non-Play-Store environment
-            simulateSandboxPurchase(product)
+    /**
+     * Query Google Play Product Details for configured one-time INAPP products.
+     * Uses PBL 9.1.0 QueryProductDetailsParams and handles unfetchedProductList diagnostics safely.
+     */
+    fun queryProductCatalog() {
+        if (!billingClient.isReady) {
+            Log.w(tag, "Cannot query product catalog: BillingClient is not ready.")
             return
         }
 
-        val productParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
-            .setProductDetails(cachedPd)
-
-        if (product.productType == ProductType.SUBSCRIPTION) {
-            val offerToken = selectedOfferToken
-                ?: product.offerToken
-                ?: cachedPd.subscriptionOfferDetails?.firstOrNull()?.offerToken
-
-            if (!offerToken.isNullOrBlank()) {
-                productParamsBuilder.setOfferToken(offerToken)
-            }
+        val configuredProductIds = BillingConstants.getConfiguredProductIds(customPacks)
+        if (configuredProductIds.isEmpty()) {
+            Log.i(tag, "No Google Play product IDs configured yet. Displaying placeholder preview cards.")
+            updatePackStatesWithDetails(emptyMap())
+            _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = true)
+            return
         }
 
-        val flowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(productParamsBuilder.build()))
+        _billingState.value = BillingState.ProductLoading
+
+        val productList = configuredProductIds.map { productId ->
+            QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(productId)
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+        }
+
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(productList)
             .build()
 
-        val billingResult = billingClient.launchBillingFlow(activity, flowParams)
-        Log.d(tag, "launchBillingFlow returned: code=${billingResult.responseCode}, msg=${billingResult.debugMessage}")
+        Log.d(tag, "Querying Google Play ProductDetails for INAPP products: $configuredProductIds")
+        billingClient.queryProductDetailsAsync(params) { billingResult, queryResult ->
+            val responseCode = billingResult.responseCode
+            if (responseCode == BillingClient.BillingResponseCode.OK) {
+                val fetchedDetails = queryResult.productDetailsList
+                val unfetched = queryResult.unfetchedProductList
 
-        if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
-            recordTransactionError(
-                productId = product.productId,
-                productTitle = product.title,
-                productType = product.productType,
-                responseCode = billingResult.responseCode,
-                message = billingResult.debugMessage
-            )
+                Log.i(tag, "Fetched ${fetchedDetails.size} Google Play products. Unfetched: ${unfetched.size}")
+
+                for (item in unfetched) {
+                    Log.w(tag, "Unfetched product: id=${item.productId}, statusCode=${item.statusCode}")
+                }
+
+                synchronized(productDetailsMap) {
+                    productDetailsMap.clear()
+                    for (pd in fetchedDetails) {
+                        productDetailsMap[pd.productId] = pd
+                    }
+                }
+
+                updatePackStatesWithDetails(productDetailsMap)
+                _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = true)
+            } else {
+                Log.e(tag, "Failed to query ProductDetails: code=$responseCode, message=${billingResult.debugMessage}")
+                updatePackStatesWithDetails(emptyMap())
+                _billingState.value = BillingState.Error(
+                    userMessage = "Unable to load credit pack pricing from Google Play. Please try again.",
+                    responseCode = responseCode
+                )
+            }
         }
     }
 
+    private fun updatePackStatesWithDetails(detailsMap: Map<String, ProductDetails>) {
+        val updatedItems = customPacks.map { config ->
+            val pd = detailsMap[config.googlePlayProductId]
+            val playProductDetails = pd?.let {
+                val oneTimeOffer = it.oneTimePurchaseOfferDetails
+                PlayProductDetails(
+                    productId = it.productId,
+                    formattedPrice = oneTimeOffer?.formattedPrice ?: "Price Unavailable",
+                    priceAmountMicros = oneTimeOffer?.priceAmountMicros ?: 0L,
+                    priceCurrencyCode = oneTimeOffer?.priceCurrencyCode ?: "INR",
+                    title = it.title,
+                    description = it.description,
+                    rawProductDetails = it
+                )
+            }
+
+            CreditPackItemState(
+                config = config,
+                googleProductDetails = playProductDetails,
+                isAvailable = playProductDetails != null,
+                isConfigured = config.isConfigured
+            )
+        }
+
+        _packItemStates.value = updatedItems
+    }
+
+    /**
+     * Launches the real Google Play Billing Sheet for a chosen one-time credit pack.
+     * Includes double-tap protection, connection verification, and product resolution.
+     */
+    fun launchPurchase(activity: Activity, packConfig: CreditPackConfig): Boolean {
+        val currentTime = SystemClock.elapsedRealtime()
+        if (currentTime - lastPurchaseLaunchTimestamp < launchDebounceThresholdMs) {
+            Log.w(tag, "Purchase launch ignored: Debounce threshold active (double-tap protection).")
+            return false
+        }
+        lastPurchaseLaunchTimestamp = currentTime
+
+        if (_billingState.value is BillingState.Launching) {
+            Log.w(tag, "Purchase launch ignored: Another purchase flow is already launching.")
+            return false
+        }
+
+        if (!packConfig.isConfigured) {
+            Log.w(tag, "Cannot purchase pack ${packConfig.localPlanId}: Product ID is not yet configured in Play Console.")
+            _billingState.value = BillingState.Error(
+                userMessage = "This credit pack is coming soon and will be available shortly.",
+                responseCode = BillingClient.BillingResponseCode.ITEM_UNAVAILABLE
+            )
+            return false
+        }
+
+        if (!billingClient.isReady) {
+            Log.w(tag, "BillingClient not ready. Reconnecting before launch...")
+            _billingState.value = BillingState.Connecting
+            startBillingConnection()
+            return false
+        }
+
+        val productDetails = synchronized(productDetailsMap) {
+            productDetailsMap[packConfig.googlePlayProductId]
+        }
+
+        if (productDetails == null) {
+            Log.e(tag, "ProductDetails not found for productId=${packConfig.googlePlayProductId}. Refreshing catalog...")
+            queryProductCatalog()
+            _billingState.value = BillingState.Error(
+                userMessage = "Product details unavailable. Refreshing Google Play catalog...",
+                responseCode = BillingClient.BillingResponseCode.ITEM_UNAVAILABLE
+            )
+            return false
+        }
+
+        _billingState.value = BillingState.Launching(localPlanId = packConfig.localPlanId)
+        pendingLaunchPlanId = packConfig.localPlanId
+
+        val productDetailsParamsList = listOf(
+            BillingFlowParams.ProductDetailsParams.newBuilder()
+                .setProductDetails(productDetails)
+                .build()
+        )
+
+        val flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(productDetailsParamsList)
+            .build()
+
+        AppObservability.analytics.logEvent(TelemetryEvent.PlayBillingSheetLaunched(packConfig.localPlanId))
+        Log.i(tag, "Launching Google Play Billing Flow for productId=${packConfig.googlePlayProductId}")
+
+        val billingResult = billingClient.launchBillingFlow(activity, flowParams)
+        val responseCode = billingResult.responseCode
+
+        if (responseCode != BillingClient.BillingResponseCode.OK) {
+            Log.e(tag, "launchBillingFlow returned error: code=$responseCode, message=${billingResult.debugMessage}")
+            val userMsg = mapResponseCodeToUserMessage(responseCode, billingResult.debugMessage)
+            _billingState.value = BillingState.Error(userMessage = userMsg, responseCode = responseCode)
+            pendingLaunchPlanId = null
+            return false
+        }
+
+        return true
+    }
+
+    /**
+     * Google Play PurchasesUpdatedListener callback.
+     * Evaluates purchase outcomes: OK, USER_CANCELED, ITEM_ALREADY_OWNED, and error states.
+     */
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
         val responseCode = billingResult.responseCode
         val debugMessage = billingResult.debugMessage
-        Log.d(tag, "onPurchasesUpdated: responseCode=$responseCode, debugMessage=$debugMessage, count=${purchases?.size ?: 0}")
 
         when (responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 if (purchases.isNullOrEmpty()) {
-                    Log.d(tag, "onPurchasesUpdated: OK with empty purchases")
-                    _uiState.value = BillingUiState.Ready(
-                        products = _availableProducts.value,
-                        activeSubscription = _activeSubscription.value,
-                        recentTransactions = _recentTransactions.value
-                    )
+                    Log.w(tag, "onPurchasesUpdated returned OK but purchase list was empty.")
+                    _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = true)
                     return
                 }
+
                 for (purchase in purchases) {
-                    handlePurchase(purchase)
+                    processPurchase(purchase)
                 }
             }
+
             BillingClient.BillingResponseCode.USER_CANCELED -> {
-                Log.d(tag, "User canceled Google Play purchase flow")
-                val lastProductId = (_uiState.value as? BillingUiState.Purchasing)?.productId ?: "unknown"
-                recordTransactionCanceled(lastProductId)
-            }
-            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
-                Log.d(tag, "Item already owned. Reconciling existing purchases...")
-                reconcilePurchases()
+                Log.i(tag, "User canceled Google Play purchase sheet. Returning to pack selection.")
+                AppObservability.analytics.logEvent(TelemetryEvent.PlayBillingUserCanceled)
+                pendingLaunchPlanId = null
+                _billingState.value = BillingState.UserCanceled
                 coroutineScope.launch {
-                    val userId = getCurrentUserId()
-                    _uiState.value = BillingUiState.PurchaseSuccess(
-                        transaction = PurchaseTransactionRecord(
-                            userId = userId,
-                            orderId = "ALREADY_OWNED",
-                            purchaseToken = "RESTORED_TOKEN",
-                            productId = (_uiState.value as? BillingUiState.Purchasing)?.productId ?: BillingConstants.PRODUCT_PRO_MONTHLY,
-                            productTitle = "MeritRanker Pro (Active)",
-                            productType = ProductType.SUBSCRIPTION,
-                            status = PurchaseTransactionStatus.PURCHASED,
-                            isAcknowledged = true,
-                            isSyncedWithBackend = false
-                        ),
-                        message = "You already own this item. Your subscription benefits are active!"
-                    )
+                    delay(300)
+                    _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = true)
                 }
             }
+
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
+                Log.w(tag, "Item already owned. Reconciling existing purchases...")
+                reconcilePurchases()
+            }
+
             else -> {
-                Log.e(tag, "Purchase flow error: code=$responseCode, message=$debugMessage")
-                val lastProductId = (_uiState.value as? BillingUiState.Purchasing)?.productId ?: "unknown"
-                recordTransactionError(
-                    productId = lastProductId,
-                    productTitle = lastProductId,
-                    productType = ProductType.SUBSCRIPTION,
-                    responseCode = responseCode,
-                    message = debugMessage.ifBlank { "Purchase failed (code: $responseCode)" }
-                )
+                Log.e(tag, "onPurchasesUpdated error: code=$responseCode, message=$debugMessage")
+                AppObservability.analytics.logEvent(TelemetryEvent.PlayBillingError(responseCode))
+                val userMsg = mapResponseCodeToUserMessage(responseCode, debugMessage)
+                _billingState.value = BillingState.Error(userMessage = userMsg, responseCode = responseCode)
+                pendingLaunchPlanId = null
             }
         }
     }
 
-    private fun handlePurchase(purchase: Purchase) {
-        coroutineScope.launch {
-            val userId = getCurrentUserId()
-            val productId = purchase.products.firstOrNull() ?: "unknown_product"
-            val isSubscription = BillingConstants.ALL_SUBSCRIPTION_IDS.contains(productId)
-            val productType = if (isSubscription) ProductType.SUBSCRIPTION else ProductType.IN_APP
-            val title = _availableProducts.value.firstOrNull { it.productId == productId }?.title ?: productId
+    private fun processPurchase(purchase: Purchase) {
+        val productId = purchase.products.firstOrNull() ?: "unknown"
+        val matchedPlan = BillingConstants.findPackByProductId(productId, customPacks)
+        val localPlanId = matchedPlan?.localPlanId ?: pendingLaunchPlanId
 
-            when (purchase.purchaseState) {
-                Purchase.PurchaseState.PURCHASED -> {
-                    var acknowledged = purchase.isAcknowledged
+        val payload = DetectedPurchasePayload.fromGooglePurchase(purchase, localPlanId)
+        Log.i(
+            tag,
+            "Detected Google Play purchase: productId=$productId, state=${purchase.purchaseState}, tokenFingerprint=${payload.tokenFingerprint}"
+        )
 
-                    if (!acknowledged) {
-                        if (isSubscription) {
-                            val acknowledgeParams = AcknowledgePurchaseParams.newBuilder()
-                                .setPurchaseToken(purchase.purchaseToken)
-                                .build()
-                            val ackResult = billingClient.acknowledgePurchase(acknowledgeParams)
-                            if (ackResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                                acknowledged = true
-                                Log.d(tag, "Subscription purchase acknowledged successfully.")
-                            } else {
-                                Log.w(tag, "Failed to acknowledge subscription: ${ackResult.debugMessage}")
-                            }
-                        } else {
-                            // Consumable in-app product (e.g. credits)
-                            val consumeParams = ConsumeParams.newBuilder()
-                                .setPurchaseToken(purchase.purchaseToken)
-                                .build()
-                            val consumeResult = billingClient.consumePurchase(consumeParams)
-                            if (consumeResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                                acknowledged = true
-                                Log.d(tag, "In-app product consumed successfully.")
-                            }
-                        }
-                    }
+        when (purchase.purchaseState) {
+            Purchase.PurchaseState.PURCHASED -> {
+                AppObservability.analytics.logEvent(TelemetryEvent.PlayBillingPurchaseDetected(productId))
+                _billingState.value = BillingState.PurchasedUnverified(payload)
+                onPlayPurchaseDetectedListener?.invoke(payload)
+            }
 
-                    val record = PurchaseTransactionRecord(
-                        transactionId = UUID.randomUUID().toString(),
-                        userId = userId,
-                        orderId = purchase.orderId,
-                        purchaseToken = purchase.purchaseToken,
-                        productId = productId,
-                        productTitle = title,
-                        productType = productType,
-                        purchaseTime = purchase.purchaseTime,
-                        status = PurchaseTransactionStatus.PURCHASED,
-                        isAcknowledged = acknowledged,
-                        isSyncedWithBackend = false,
-                        responseCode = BillingClient.BillingResponseCode.OK,
-                        rawJsonPayload = purchase.originalJson
-                    )
+            Purchase.PurchaseState.PENDING -> {
+                Log.i(tag, "Purchase is in PENDING state (awaiting payment instrument clearance).")
+                AppObservability.analytics.logEvent(TelemetryEvent.PlayBillingPending(productId))
+                _billingState.value = BillingState.Pending(payload)
+            }
 
-                    transactionRepository.recordTransaction(record)
-                    Log.i(tag, "Recorded PURCHASED transaction: orderId=${purchase.orderId}, productId=$productId")
-                    _uiState.value = BillingUiState.PurchaseSuccess(record)
-                }
-
-                Purchase.PurchaseState.PENDING -> {
-                    val record = PurchaseTransactionRecord(
-                        transactionId = UUID.randomUUID().toString(),
-                        userId = userId,
-                        orderId = purchase.orderId,
-                        purchaseToken = purchase.purchaseToken,
-                        productId = productId,
-                        productTitle = title,
-                        productType = productType,
-                        purchaseTime = purchase.purchaseTime,
-                        status = PurchaseTransactionStatus.PENDING,
-                        isAcknowledged = false,
-                        isSyncedWithBackend = false,
-                        responseCode = BillingClient.BillingResponseCode.OK,
-                        rawJsonPayload = purchase.originalJson
-                    )
-
-                    transactionRepository.recordTransaction(record)
-                    Log.i(tag, "Recorded PENDING transaction: productId=$productId")
-                    _uiState.value = BillingUiState.PurchasePending(record)
-                }
-
-                else -> {
-                    Log.w(tag, "Unspecified purchase state for productId=$productId")
-                    val record = PurchaseTransactionRecord(
-                        transactionId = UUID.randomUUID().toString(),
-                        userId = userId,
-                        orderId = purchase.orderId,
-                        purchaseToken = purchase.purchaseToken,
-                        productId = productId,
-                        productTitle = title,
-                        productType = productType,
-                        purchaseTime = purchase.purchaseTime,
-                        status = PurchaseTransactionStatus.ERROR,
-                        isAcknowledged = false,
-                        isSyncedWithBackend = false,
-                        responseCode = BillingClient.BillingResponseCode.ERROR,
-                        errorMessage = "Unspecified purchase state",
-                        rawJsonPayload = purchase.originalJson
-                    )
-                    transactionRepository.recordTransaction(record)
-                    _uiState.value = BillingUiState.PurchaseError(
-                        errorCode = BillingClient.BillingResponseCode.ERROR,
-                        message = "Purchase state could not be verified."
-                    )
-                }
+            else -> {
+                Log.w(tag, "Purchase in unspecified state: ${purchase.purchaseState}")
             }
         }
+
+        pendingLaunchPlanId = null
     }
 
-    private fun recordTransactionCanceled(productId: String) {
-        coroutineScope.launch {
-            val userId = getCurrentUserId()
-            val title = _availableProducts.value.firstOrNull { it.productId == productId }?.title ?: productId
-            val record = PurchaseTransactionRecord(
-                transactionId = UUID.randomUUID().toString(),
-                userId = userId,
-                orderId = null,
-                purchaseToken = "CANCELED_${System.currentTimeMillis()}",
-                productId = productId,
-                productTitle = title,
-                productType = ProductType.SUBSCRIPTION,
-                status = PurchaseTransactionStatus.USER_CANCELED,
-                responseCode = BillingClient.BillingResponseCode.USER_CANCELED,
-                errorMessage = "User canceled purchase sheet"
-            )
-            transactionRepository.recordTransaction(record)
-            _uiState.value = BillingUiState.PurchaseCanceled(productId)
-        }
-    }
-
-    private fun recordTransactionError(
-        productId: String,
-        productTitle: String,
-        productType: ProductType,
-        responseCode: Int,
-        message: String
-    ) {
-        coroutineScope.launch {
-            val userId = getCurrentUserId()
-            val record = PurchaseTransactionRecord(
-                transactionId = UUID.randomUUID().toString(),
-                userId = userId,
-                orderId = null,
-                purchaseToken = "ERROR_${System.currentTimeMillis()}",
-                productId = productId,
-                productTitle = productTitle,
-                productType = productType,
-                status = PurchaseTransactionStatus.ERROR,
-                responseCode = responseCode,
-                errorMessage = message
-            )
-            transactionRepository.recordTransaction(record)
-            _uiState.value = BillingUiState.PurchaseError(responseCode, message)
-        }
-    }
-
+    /**
+     * Purchase Recovery: Queries Google Play for active/unconsumed INAPP purchases.
+     * Guarantees that purchases completed during process interruption or app backgrounding are detected.
+     */
     fun reconcilePurchases() {
-        coroutineScope.launch {
-            if (!billingClient.isReady) return@launch
+        if (!billingClient.isReady) {
+            Log.d(tag, "Cannot reconcile purchases: BillingClient is not ready.")
+            return
+        }
 
-            try {
-                // Check Subscriptions
-                val subsResult = billingClient.queryPurchasesAsync(
-                    QueryPurchasesParams.newBuilder()
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                )
+        val params = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build()
 
-                if (subsResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    for (purchase in subsResult.purchasesList) {
-                        handlePurchase(purchase)
-                    }
+        Log.d(tag, "Reconciling one-time INAPP purchases with Google Play...")
+        billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                Log.i(tag, "Reconciliation returned ${purchases.size} INAPP purchases.")
+                for (purchase in purchases) {
+                    processPurchase(purchase)
                 }
-
-                // Check In-App Purchases
-                val inAppResult = billingClient.queryPurchasesAsync(
-                    QueryPurchasesParams.newBuilder()
-                        .setProductType(BillingClient.ProductType.INAPP)
-                        .build()
-                )
-
-                if (inAppResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    for (purchase in inAppResult.purchasesList) {
-                        handlePurchase(purchase)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(tag, "Error reconciling purchases from Google Play", e)
+            } else {
+                Log.w(tag, "queryPurchasesAsync failed: code=${billingResult.responseCode}, message=${billingResult.debugMessage}")
             }
         }
     }
 
-    private fun simulateSandboxPurchase(product: PlayProductDetails) {
-        coroutineScope.launch {
-            delay(800) // Brief delay to simulate sheet presentation
-            val userId = getCurrentUserId()
-            val orderId = "GPA.SANDBOX-${System.currentTimeMillis()}"
-            val token = "sandbox_token_${UUID.randomUUID()}"
-
-            val record = PurchaseTransactionRecord(
-                transactionId = UUID.randomUUID().toString(),
-                userId = userId,
-                orderId = orderId,
-                purchaseToken = token,
-                productId = product.productId,
-                productTitle = product.title,
-                productType = product.productType,
-                purchaseTime = System.currentTimeMillis(),
-                status = PurchaseTransactionStatus.PURCHASED,
-                isAcknowledged = true,
-                isSyncedWithBackend = false,
-                responseCode = BillingClient.BillingResponseCode.OK,
-                rawJsonPayload = JSONObject().apply {
-                    put("orderId", orderId)
-                    put("productId", product.productId)
-                    put("purchaseTime", System.currentTimeMillis())
-                    put("purchaseState", 0)
-                    put("acknowledged", true)
-                }.toString()
-            )
-
-            transactionRepository.recordTransaction(record)
-            Log.i(tag, "Simulated sandbox purchase recorded for ${product.productId}")
-            _uiState.value = BillingUiState.PurchaseSuccess(record)
+    /**
+     * Called on App Lifecycle Resume to ensure connection and recover any completed transactions.
+     */
+    fun onAppResume() {
+        if (billingClient.isReady) {
+            reconcilePurchases()
+        } else {
+            startBillingConnection()
         }
-    }
-
-    private fun observeLocalTransactions() {
-        coroutineScope.launch {
-            val userId = getCurrentUserId()
-            launch {
-                transactionRepository.getActiveSubscription(userId).collect { activeSub ->
-                    _activeSubscription.value = activeSub
-                }
-            }
-            launch {
-                transactionRepository.getTransactions(userId).collect { history ->
-                    _recentTransactions.value = history
-                }
-            }
-        }
-    }
-
-    private suspend fun getCurrentUserId(): String {
-        return authRepository.getCurrentUserId() ?: "authenticated_student_user"
     }
 
     fun dismissState() {
-        _uiState.value = BillingUiState.Ready(
-            products = _availableProducts.value,
-            activeSubscription = _activeSubscription.value,
-            recentTransactions = _recentTransactions.value
-        )
+        _billingState.value = BillingState.Ready(packs = _packItemStates.value, isConnected = billingClient.isReady)
+    }
+
+    private fun mapResponseCodeToUserMessage(code: Int, debugMessage: String): String {
+        return when (code) {
+            BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE ->
+                "Google Play billing service is temporarily unavailable. Please check your connection and try again."
+            BillingClient.BillingResponseCode.BILLING_UNAVAILABLE ->
+                "Google Play billing is not supported on this device or account."
+            BillingClient.BillingResponseCode.ITEM_UNAVAILABLE ->
+                "This credit pack is currently unavailable. Please check back shortly."
+            BillingClient.BillingResponseCode.DEVELOPER_ERROR ->
+                "Configuration error with Google Play. Please try again later."
+            BillingClient.BillingResponseCode.ERROR ->
+                "An unexpected payment error occurred. Please check your network and try again."
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED ->
+                "You already have an active purchase pending processing. Verifying..."
+            BillingClient.BillingResponseCode.NETWORK_ERROR ->
+                "Network error connecting to Google Play. Please check your internet connection."
+            else ->
+                if (debugMessage.isNotBlank()) "Google Play Error: $debugMessage" else "Payment could not be completed (Code: $code)."
+        }
     }
 
     companion object {
         @Volatile
         private var instance: BillingManager? = null
 
-        fun getInstance(context: Context): BillingManager {
+        fun getInstance(
+            context: Context,
+            customPacks: List<CreditPackConfig> = BillingConstants.DEFAULT_CREDIT_PACKS
+        ): BillingManager {
             return instance ?: synchronized(this) {
-                instance ?: BillingManager(context.applicationContext).also { instance = it }
+                instance ?: BillingManager(context.applicationContext, customPacks).also { instance = it }
             }
         }
     }

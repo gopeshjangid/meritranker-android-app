@@ -463,6 +463,41 @@ sealed class TelemetryEvent(
     object AccountDeletionStarted : TelemetryEvent(eventName = "account_deletion_started")
 
     // -------------------------------------------------------------
+    // Google Play Billing (One-Time Credit Packs)
+    // -------------------------------------------------------------
+    object CreditStoreOpened : TelemetryEvent(eventName = "credit_store_opened")
+
+    data class CreditPackSelected(
+        val planId: String,
+        val credits: Int
+    ) : TelemetryEvent(
+        eventName = "credit_pack_selected",
+        params = mapOf("plan_id" to planId, "credits" to credits.toString())
+    )
+
+    data class PlayBillingSheetLaunched(val planId: String) : TelemetryEvent(
+        eventName = "play_billing_sheet_launched",
+        params = mapOf("plan_id" to planId)
+    )
+
+    object PlayBillingUserCanceled : TelemetryEvent(eventName = "play_billing_user_canceled")
+
+    data class PlayBillingPending(val productId: String) : TelemetryEvent(
+        eventName = "play_billing_pending",
+        params = mapOf("product_id" to productId)
+    )
+
+    data class PlayBillingPurchaseDetected(val productId: String) : TelemetryEvent(
+        eventName = "play_billing_purchase_detected",
+        params = mapOf("product_id" to productId)
+    )
+
+    data class PlayBillingError(val responseCode: Int) : TelemetryEvent(
+        eventName = "play_billing_error",
+        params = mapOf("response_code" to responseCode.toString())
+    )
+
+    // -------------------------------------------------------------
     // Reliability & System
     // -------------------------------------------------------------
     data class FeatureError(

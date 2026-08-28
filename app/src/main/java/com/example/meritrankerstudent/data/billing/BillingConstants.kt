@@ -1,93 +1,57 @@
 package com.example.meritrankerstudent.data.billing
 
+/**
+ * MeritRanker One-Time Credit Pack Catalog & Product Configuration.
+ * 
+ * Strict Commercial Model:
+ * - One-time purchases only (BillingClient.ProductType.INAPP)
+ * - NO subscriptions
+ * - NO recurring billing
+ * - Real Google Play product IDs will be supplied/finalized by the developer in Play Console.
+ */
 object BillingConstants {
 
-    // Subscription Product IDs (Configured in Google Play Console)
-    const val PRODUCT_PRO_MONTHLY = "meritranker_pro_monthly"
-    const val PRODUCT_PRO_YEARLY = "meritranker_pro_yearly"
-
-    // In-App One-Time Booster Product IDs
-    const val PRODUCT_CREDITS_100 = "meritranker_credits_100"
-    const val PRODUCT_MOCK_PACK_10 = "meritranker_mock_pack_10"
-
-    val ALL_SUBSCRIPTION_IDS = listOf(
-        PRODUCT_PRO_MONTHLY,
-        PRODUCT_PRO_YEARLY
-    )
-
-    val ALL_IN_APP_IDS = listOf(
-        PRODUCT_CREDITS_100,
-        PRODUCT_MOCK_PACK_10
-    )
-
-    // Feature bullet points for plan cards
-    val PRO_FEATURES = listOf(
-        "Unlimited Smart Tutor AI Doubt Solving",
-        "Step-by-step Mathematical & Reasoning Solutions",
-        "Adaptive AI Mock Tests with Instant Scoring",
-        "Deep Sectional Weakness & Accuracy Analytics",
-        "Ad-free & Priority AI Response Speed"
-    )
-
-    val CREDITS_FEATURES = listOf(
-        "100 AI Doubt Solving Prompt Credits",
-        "Instant Step-by-Step Question Breakdown",
-        "No Expiry on Unused Credits"
-    )
-
-    val MOCKS_FEATURES = listOf(
-        "10 Full-Length Exam Simulation Tests",
-        "Detailed Performance & Rank Analytics",
-        "Explanations for all 1,000+ Questions"
-    )
-
-    // Fallback product catalog when BillingClient returns empty (e.g. debug builds or offline)
-    val DEFAULT_PRODUCTS = listOf(
-        PlayProductDetails(
-            productId = PRODUCT_PRO_MONTHLY,
-            productType = ProductType.SUBSCRIPTION,
-            title = "MeritRanker Pro (Monthly)",
-            description = "Unlimited AI Doubt Solving, Mock Tests & Full Analytics",
-            formattedPrice = "₹499 / mo",
-            priceAmountMicros = 499000000L,
-            priceCurrencyCode = "INR",
-            billingPeriod = "P1M",
-            features = PRO_FEATURES,
-            badge = "Flexible"
+    // Real Google Play One-Time INAPP Products
+    val DEFAULT_CREDIT_PACKS = listOf(
+        CreditPackConfig(
+            localPlanId = "pack_500",
+            googlePlayProductId = "meritranker_credits_500",
+            credits = 500,
+            displayLabel = "500 Credits",
+            sortOrder = 1,
+            isPopular = false,
+            badgeText = null
         ),
-        PlayProductDetails(
-            productId = PRODUCT_PRO_YEARLY,
-            productType = ProductType.SUBSCRIPTION,
-            title = "MeritRanker Pro (Annual)",
-            description = "Full Exam Preparation Suite for 12 Months",
-            formattedPrice = "₹3,999 / yr",
-            priceAmountMicros = 3999000000L,
-            priceCurrencyCode = "INR",
-            billingPeriod = "P1Y",
-            features = PRO_FEATURES,
-            badge = "Save 33% • Best Value"
+        CreditPackConfig(
+            localPlanId = "pack_1000",
+            googlePlayProductId = "meritranker_credits_1000",
+            credits = 1000,
+            displayLabel = "1000 Credits",
+            sortOrder = 2,
+            isPopular = false,
+            badgeText = null
         ),
-        PlayProductDetails(
-            productId = PRODUCT_CREDITS_100,
-            productType = ProductType.IN_APP,
-            title = "100 AI Tutor Credits",
-            description = "Ask 100 questions with instant AI step-by-step explanations",
-            formattedPrice = "₹99",
-            priceAmountMicros = 99000000L,
-            priceCurrencyCode = "INR",
-            features = CREDITS_FEATURES,
-            badge = "Booster"
-        ),
-        PlayProductDetails(
-            productId = PRODUCT_MOCK_PACK_10,
-            productType = ProductType.IN_APP,
-            title = "10 Full Mock Test Pack",
-            description = "10 Full-length exam practice tests with in-depth solutions",
-            formattedPrice = "₹199",
-            priceAmountMicros = 199000000L,
-            priceCurrencyCode = "INR",
-            features = MOCKS_FEATURES,
-            badge = "Exam Ready"
+        CreditPackConfig(
+            localPlanId = "pack_1500",
+            googlePlayProductId = "meritranker_credits_1500",
+            credits = 1500,
+            displayLabel = "1500 Credits",
+            sortOrder = 3,
+            isPopular = false,
+            badgeText = null
         )
     )
+
+    fun findPackByProductId(productId: String, customPacks: List<CreditPackConfig> = DEFAULT_CREDIT_PACKS): CreditPackConfig? {
+        if (productId.isBlank()) return null
+        return customPacks.firstOrNull { it.googlePlayProductId == productId }
+    }
+
+    fun findPackByPlanId(planId: String, customPacks: List<CreditPackConfig> = DEFAULT_CREDIT_PACKS): CreditPackConfig? {
+        return customPacks.firstOrNull { it.localPlanId == planId }
+    }
+
+    fun getConfiguredProductIds(customPacks: List<CreditPackConfig> = DEFAULT_CREDIT_PACKS): List<String> {
+        return customPacks.map { it.googlePlayProductId }.filter { it.isNotBlank() }.distinct()
+    }
 }

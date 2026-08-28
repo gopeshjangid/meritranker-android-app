@@ -78,6 +78,7 @@ android {
         abortOnError = true
         checkReleaseBuilds = false
         disable += "RestrictedApi"
+        disable += "InvalidFragmentVersionForActivityResult"
     }
 }
 

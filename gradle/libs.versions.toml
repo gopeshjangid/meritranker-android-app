@@ -22,7 +22,7 @@ room = "2.6.1"
 
 playReview = "2.0.2"
 playAppUpdate = "2.1.0"
-playBilling = "7.1.1"
+playBilling = "9.1.0"
 firebaseBom = "33.10.0"
 googleServicesPlugin = "4.4.2"
 firebaseCrashlyticsPlugin = "3.0.3"
