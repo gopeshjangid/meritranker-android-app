@@ -2,7 +2,6 @@ package com.example.meritrankerstudent.data.billing
 
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
-import java.security.MessageDigest
 
 /**
  * Clean data model for MeritRanker One-Time Credit Pack Configuration.
@@ -61,14 +60,7 @@ data class DetectedPurchasePayload(
 ) {
     companion object {
         fun computeFingerprint(token: String): String {
-            if (token.isBlank()) return "empty_token"
-            return try {
-                val digest = MessageDigest.getInstance("SHA-256")
-                val hash = digest.digest(token.toByteArray(Charsets.UTF_8))
-                hash.take(8).joinToString("") { "%02x".format(it) }
-            } catch (_: Exception) {
-                "sha256_err_${token.takeLast(4)}"
-            }
+            return BillingSecurityUtils.computeTokenFingerprint(token)
         }
 
         fun fromGooglePurchase(
@@ -103,6 +95,12 @@ sealed interface BillingState {
     ) : BillingState
     data class Launching(val localPlanId: String) : BillingState
     data class Pending(val payload: DetectedPurchasePayload) : BillingState
+    data class Verifying(val payload: DetectedPurchasePayload) : BillingState
+    data class Success(
+        val creditsGranted: Int,
+        val updatedBalance: Int,
+        val payload: DetectedPurchasePayload
+    ) : BillingState
     data class PurchasedUnverified(val payload: DetectedPurchasePayload) : BillingState
     data object UserCanceled : BillingState
     data class Error(

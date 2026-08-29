@@ -50,6 +50,7 @@ fun ProfileSettingsScreen(
     creditStoreViewModel: CreditStoreViewModel = viewModel()
 ) {
     val uiState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val userCredits by creditStoreViewModel.userCredits.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showExamBottomSheet by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
@@ -331,9 +332,10 @@ fun ProfileSettingsScreen(
                                 ) {
                                     Column {
                                         Text(
-                                            text = "Current credits",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            text = "${userCredits?.creditsBalance ?: 0} Credits",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(

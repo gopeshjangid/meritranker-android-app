@@ -6,7 +6,7 @@ import org.junit.Test
 /**
  * Comprehensive unit tests for MeritRanker One-Time Credit Pack Billing Architecture (PBL 9.1.0).
  * Tests real Google Play product mappings (500, 1000, 1500), state machine, token fingerprinting,
- * partial product availability, and strict Phase 1 security boundaries.
+ * user attribution (obfuscatedAccountId), partial product availability, and backend verification states.
  */
 class CreditBillingTest {
 
@@ -18,6 +18,7 @@ class CreditBillingTest {
         val pack500 = packs[0]
         assertEquals("pack_500", pack500.localPlanId)
         assertEquals("meritranker_credits_500", pack500.googlePlayProductId)
+        assertEquals("buy-500", pack500.purchaseOptionId)
         assertEquals(500, pack500.credits)
         assertEquals("500 Credits", pack500.displayLabel)
         assertEquals(1, pack500.sortOrder)
@@ -28,6 +29,7 @@ class CreditBillingTest {
         val pack1000 = packs[1]
         assertEquals("pack_1000", pack1000.localPlanId)
         assertEquals("meritranker_credits_1000", pack1000.googlePlayProductId)
+        assertEquals("buy-1000", pack1000.purchaseOptionId)
         assertEquals(1000, pack1000.credits)
         assertEquals("1000 Credits", pack1000.displayLabel)
         assertEquals(2, pack1000.sortOrder)
@@ -38,6 +40,7 @@ class CreditBillingTest {
         val pack1500 = packs[2]
         assertEquals("pack_1500", pack1500.localPlanId)
         assertEquals("meritranker_credits_1500", pack1500.googlePlayProductId)
+        assertEquals("buy-1500", pack1500.purchaseOptionId)
         assertEquals(1500, pack1500.credits)
         assertEquals("1500 Credits", pack1500.displayLabel)
         assertEquals(3, pack1500.sortOrder)
@@ -78,13 +81,31 @@ class CreditBillingTest {
     }
 
     @Test
+    fun billingSecurityUtils_deterministicUserAttribution_andObfuscatedAccountId() {
+        val userId = "cognito-sub-12345-abcdef-67890"
+        val obfuscated1 = BillingSecurityUtils.generateObfuscatedAccountId(userId)
+        val obfuscated2 = BillingSecurityUtils.generateObfuscatedAccountId(userId)
+
+        assertNotNull(obfuscated1)
+        assertEquals(obfuscated1, obfuscated2)
+        assertEquals(64, obfuscated1?.length) // SHA-256 is 64 hex characters (256 bits)
+        assertTrue(obfuscated1!!.matches(Regex("^[0-9a-f]{64}$")))
+        assertFalse(obfuscated1.contains("cognito"))
+        assertFalse(obfuscated1.contains("12345"))
+
+        assertNull(BillingSecurityUtils.generateObfuscatedAccountId(null))
+        assertNull(BillingSecurityUtils.generateObfuscatedAccountId(""))
+        assertNull(BillingSecurityUtils.generateObfuscatedAccountId("   "))
+    }
+
+    @Test
     fun detectedPurchasePayload_computesConsistentSha256Fingerprint_andNeverExposesRawToken() {
         val rawToken = "sample_google_play_purchase_token_inapp_999888777"
         val fp1 = DetectedPurchasePayload.computeFingerprint(rawToken)
         val fp2 = DetectedPurchasePayload.computeFingerprint(rawToken)
 
         assertEquals(fp1, fp2)
-        assertEquals(16, fp1.length) // 8 bytes represented as 16 hex chars
+        assertEquals(16, fp1.length) // 16 hex characters prefix
         assertFalse(fp1.contains("sample_google_play"))
         assertFalse(fp1.contains("999888777"))
 
@@ -100,23 +121,22 @@ class CreditBillingTest {
 
         val playDetails500 = PlayProductDetails(
             productId = "meritranker_credits_500",
-            formattedPrice = "₹99.00",
-            priceAmountMicros = 99000000L,
+            formattedPrice = "₹500.00",
+            priceAmountMicros = 500000000L,
             priceCurrencyCode = "INR",
-            title = "500 AI Credits",
-            description = "Pack of 500 AI credits"
+            title = "500 Credits",
+            description = "Pack of 500 credits"
         )
 
         val playDetails1000 = PlayProductDetails(
             productId = "meritranker_credits_1000",
-            formattedPrice = "₹179.00",
-            priceAmountMicros = 179000000L,
+            formattedPrice = "₹1,000.00",
+            priceAmountMicros = 1000000000L,
             priceCurrencyCode = "INR",
-            title = "1000 AI Credits",
-            description = "Pack of 1000 AI credits"
+            title = "1000 Credits",
+            description = "Pack of 1000 credits"
         )
 
-        // Scenario: 500 & 1000 loaded successfully from Google Play, 1500 failed/unfetched
         val state500 = CreditPackItemState(
             config = pack500Config,
             googleProductDetails = playDetails500,
@@ -139,10 +159,10 @@ class CreditBillingTest {
         )
 
         assertTrue(state500.isAvailable)
-        assertEquals("₹99.00", state500.googleProductDetails?.formattedPrice)
+        assertEquals("₹500.00", state500.googleProductDetails?.formattedPrice)
 
         assertTrue(state1000.isAvailable)
-        assertEquals("₹179.00", state1000.googleProductDetails?.formattedPrice)
+        assertEquals("₹1,000.00", state1000.googleProductDetails?.formattedPrice)
 
         assertFalse(state1500Failed.isAvailable)
         assertTrue(state1500Failed.isConfigured)
@@ -169,6 +189,8 @@ class CreditBillingTest {
             tokenFingerprint = "500abcd1234efgh"
         )
 
+        val verifying: BillingState = BillingState.Verifying(samplePayload)
+        val success: BillingState = BillingState.Success(creditsGranted = 500, updatedBalance = 1500, payload = samplePayload)
         val purchasedUnverified: BillingState = BillingState.PurchasedUnverified(samplePayload)
         val pending: BillingState = BillingState.Pending(samplePayload)
 
@@ -179,12 +201,16 @@ class CreditBillingTest {
         assertTrue(launching is BillingState.Launching)
         assertTrue(userCanceled is BillingState.UserCanceled)
         assertTrue(error is BillingState.Error)
+        assertTrue(verifying is BillingState.Verifying)
+        assertTrue(success is BillingState.Success)
         assertTrue(purchasedUnverified is BillingState.PurchasedUnverified)
         assertTrue(pending is BillingState.Pending)
 
-        assertEquals("pack_500", (purchasedUnverified as BillingState.PurchasedUnverified).payload.localPlanId)
-        assertEquals("meritranker_credits_500", purchasedUnverified.payload.productId)
-        assertEquals("GPA.9876-5432", purchasedUnverified.payload.orderId)
+        assertEquals(500, (success as BillingState.Success).creditsGranted)
+        assertEquals(1500, success.updatedBalance)
+        assertEquals("pack_500", (verifying as BillingState.Verifying).payload.localPlanId)
+        assertEquals("meritranker_credits_500", verifying.payload.productId)
+        assertEquals("GPA.9876-5432", verifying.payload.orderId)
     }
 
     @Test
@@ -209,8 +235,8 @@ class CreditBillingTest {
             tokenFingerprint = "fp1500"
         )
 
-        val state1 = BillingState.PurchasedUnverified(payload1000)
-        val state2 = BillingState.PurchasedUnverified(payload1500)
+        val state1 = BillingState.Verifying(payload1000)
+        val state2 = BillingState.Verifying(payload1500)
 
         assertNotEquals(state1.payload.productId, state2.payload.productId)
         assertNotEquals(state1.payload.localPlanId, state2.payload.localPlanId)

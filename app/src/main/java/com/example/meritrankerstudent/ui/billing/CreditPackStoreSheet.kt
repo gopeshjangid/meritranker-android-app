@@ -2,7 +2,6 @@ package com.example.meritrankerstudent.ui.billing
 
 import android.app.Activity
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,7 +13,6 @@ import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +37,7 @@ fun CreditPackStoreSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val billingState by viewModel.billingState.collectAsStateWithLifecycle()
     val packItems by viewModel.packItemStates.collectAsStateWithLifecycle()
+    val userCredits by viewModel.userCredits.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
 
@@ -55,7 +54,7 @@ fun CreditPackStoreSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp)
                 .navigationBarsPadding()
         ) {
-            // Header
+            // Header with current balance indicator
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -63,16 +62,16 @@ fun CreditPackStoreSheet(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.size(36.dp)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.ElectricBolt,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -96,11 +95,38 @@ fun CreditPackStoreSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Current Balance Strip
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Current balance:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${userCredits?.creditsBalance ?: 0} Credits",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Credit Packs List
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(packItems, key = { it.config.localPlanId }) { item ->
@@ -109,6 +135,8 @@ fun CreditPackStoreSheet(
                         isLoading = billingState is BillingState.Connecting || billingState is BillingState.ProductLoading,
                         isLaunching = billingState is BillingState.Launching &&
                                 (billingState as BillingState.Launching).localPlanId == item.config.localPlanId,
+                        isVerifying = billingState is BillingState.Verifying &&
+                                (billingState as BillingState.Verifying).payload.localPlanId == item.config.localPlanId,
                         onBuyClick = {
                             if (activity != null) {
                                 viewModel.launchBuy(activity, item.config)
@@ -118,23 +146,23 @@ fun CreditPackStoreSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Google Play Security & Payment Methods Footnote
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -142,18 +170,76 @@ fun CreditPackStoreSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
-                        lineHeight = 15.sp
+                        lineHeight = 14.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
         }
     }
 
     // ==================== STATE MACHINE OUTCOME DIALOGS ====================
 
     when (val state = billingState) {
+        is BillingState.Verifying -> {
+            AlertDialog(
+                onDismissRequest = {},
+                icon = {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = {
+                    Text("Verifying purchase…", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        "Connecting to MeritRanker backend to grant your credits securely."
+                    )
+                },
+                confirmButton = {}
+            )
+        }
+
+        is BillingState.Success -> {
+            AlertDialog(
+                onDismissRequest = {
+                    viewModel.dismissState()
+                    onDismiss()
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text("Credits Added!", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        "Successfully added ${state.creditsGranted} credits. Your new balance is ${state.updatedBalance} credits."
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.dismissState()
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Continue", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+
         is BillingState.PurchasedUnverified -> {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissState() },
@@ -169,9 +255,7 @@ fun CreditPackStoreSheet(
                     Text("Purchase received", fontWeight = FontWeight.Bold)
                 },
                 text = {
-                    Text(
-                        "Google Play completed the transaction. Credit verification will be handled in the next phase."
-                    )
+                    Text("Google Play completed transaction. Verifying credits…")
                 },
                 confirmButton = {
                     Button(
@@ -200,7 +284,7 @@ fun CreditPackStoreSheet(
                 },
                 text = {
                     Text(
-                        "Google Play is still processing your payment."
+                        "We'll add your credits once Google confirms the payment."
                     )
                 },
                 confirmButton = {
@@ -245,6 +329,7 @@ private fun CreditPackCard(
     itemState: CreditPackItemState,
     isLoading: Boolean,
     isLaunching: Boolean,
+    isVerifying: Boolean,
     onBuyClick: () -> Unit
 ) {
     val config = itemState.config
@@ -261,14 +346,14 @@ private fun CreditPackCard(
         ),
         border = BorderStroke(
             width = if (config.isPopular) 1.5.dp else 1.dp,
-            color = if (config.isPopular) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            color = if (config.isPopular) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -299,7 +384,7 @@ private fun CreditPackCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Price display from Google Play or configuration state
                 if (googleDetails != null) {
@@ -311,7 +396,7 @@ private fun CreditPackCard(
                     )
                 } else if (!itemState.isConfigured) {
                     Text(
-                        text = "Coming Soon (Play ID not set)",
+                        text = "Coming Soon",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
@@ -333,7 +418,7 @@ private fun CreditPackCard(
                     }
                 } else {
                     Text(
-                        text = "This pack is temporarily unavailable.",
+                        text = "Temporarily unavailable",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
@@ -343,10 +428,10 @@ private fun CreditPackCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Right: Buy CTA
+            // Right: Buy CTA Button
             Button(
                 onClick = onBuyClick,
-                enabled = isReadyForPurchase && !isLaunching,
+                enabled = isReadyForPurchase && !isLaunching && !isVerifying,
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -354,7 +439,7 @@ private fun CreditPackCard(
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                if (isLaunching) {
+                if (isLaunching || isVerifying) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
